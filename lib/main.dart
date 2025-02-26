@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/EditVehicleScreen.dart'; // Import the edit screen
 import 'providers/auth_provider.dart';
+import 'models/vehicle_record.dart'; // Import the VehicleRecord model
 
 void main() {
   runApp(
@@ -24,6 +26,15 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => LoginScreen(),
         '/dashboard': (context) => DashboardScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/edit-vehicle') {
+          final vehicle = settings.arguments as VehicleRecord;
+          return MaterialPageRoute(
+            builder: (context) => EditVehicleScreen(vehicle: vehicle),
+          );
+        }
+        return null; // Handle unknown routes
       },
     );
   }

@@ -3,25 +3,12 @@ import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import './CreateVehicleScreen.dart'; // Add this import
+import './EditVehicleScreen.dart'; // Add this import
 
 class DashboardScreen extends StatefulWidget {
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
-}
-
-TableRow _buildTableRow(String label, String value) {
-  return TableRow(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(value),
-      ),
-    ],
-  );
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
@@ -71,9 +58,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-void _logout() {
+  void _logout() {
     Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushReplacementNamed(context, '/login');
+  }
+
+void _createNewRecord() async {
+  bool? result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => CreateVehicleScreen()),
+  );
+
+  if (result == true) {
+    setState(() {
+      _vehicles = ApiService().fetchVehicles(); // Refresh vehicle list
+    });
+  }
+}
+
+
+void _editRecord(VehicleRecord vehicle) async {
+  final result = await Navigator.pushNamed(context, '/edit-vehicle', arguments: vehicle);
+  
+  if (result == true) { // If edit was successful, refresh the list
+    _fetchRecords();
+  }
+}
+
+void _fetchRecords() {
+  setState(() {
+    _vehicles = ApiService().fetchVehicles();
+  });
+}
+
+
+
+  void _deleteRecord(String id) {
+    // Show confirmation dialog before deleting
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Confirm Delete"),
+          content: Text("Are you sure you want to delete this vehicle record?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                ApiService().deleteVehicle(id).then((_) {
+                  setState(() {
+                    _vehicles = ApiService().fetchVehicles(); // Refresh list after delete
+                  });
+                  Navigator.pop(context);
+                });
+              },
+              child: Text("Delete", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showVehicleDetails(VehicleRecord vehicle) {
@@ -84,37 +131,27 @@ void _logout() {
           title: Center(
             child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
-          content: SizedBox(
-            width: 400,
-            height: 300,
-            child: SingleChildScrollView(
-              child: Table(
-                border: TableBorder.all(color: Colors.grey, width: 1),
-                columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
-                children: [
-                  _buildTableRow("Plate Number", vehicle.plateNumber),
-                  _buildTableRow("Section", vehicle.section),
-                  _buildTableRow("Name", vehicle.name ?? 'N/A'),
-                  _buildTableRow("Address", vehicle.address ?? 'N/A'),
-                  _buildTableRow("Area", vehicle.area ?? 'N/A'),
-                  _buildTableRow("Status", vehicle.status.toString().split('.').last),
-                  _buildTableRow("Created", vehicle.dateCreated.toString()),
-                  _buildTableRow("Updated", vehicle.dateUpdated.toString()),
-                ],
-              ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Plate Number: ${vehicle.plateNumber}"),
+                Text("Status: ${vehicle.status.toString().split('.').last}"),
+                Text("Created: ${vehicle.dateCreated}"),
+                Text("Updated: ${vehicle.dateUpdated}"),
+              ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text("Close", style: TextStyle(fontSize: 16)),
+              child: Text("Close"),
             ),
           ],
         );
       },
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -133,11 +170,10 @@ void _logout() {
                 onChanged: _updateSearchQuery,
               )
             : Text("Vehicle Dashboard"),
-        titleTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-        backgroundColor: Color(0xFF3b82f6),
+        backgroundColor: Color(0xFF3b82f6), titleTextStyle: TextStyle(color: Colors.white, fontSize: 24),
         actions: [
           IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white,),
+            icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
             onPressed: _toggleSearch,
           ),
           IconButton(
@@ -181,12 +217,9 @@ void _logout() {
                                 sortAscending: _isAscending,
                                 headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
                                 columns: [
-                                  DataColumn(
-                                    label: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6))),
-                                  ),
-                                  DataColumn(
-                                    label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6))),
-                                  ),
+                                  DataColumn(label: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
+                                  DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
+                                  DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
                                 ],
                                 rows: paginatedVehicles.map((vehicle) {
                                   return DataRow(
@@ -196,6 +229,20 @@ void _logout() {
                                         onTap: () => _showVehicleDetails(vehicle),
                                       ),
                                       DataCell(Text(vehicle.status.toString().split('.').last)),
+                                      DataCell(
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(Icons.edit, color: Colors.green),
+                                              onPressed: () => _editRecord(vehicle),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.delete, color: Colors.red),
+                                              onPressed: () => _deleteRecord(vehicle.id),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   );
                                 }).toList(),
@@ -208,24 +255,12 @@ void _logout() {
                           children: [
                             ElevatedButton(
                               onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF3b82f6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: Text("Previous", style: TextStyle(color: Colors.white)),
+                              child: Text("Previous"),
                             ),
                             Text("Page ${_currentPage + 1}"),
                             ElevatedButton(
                               onPressed: endIndex < filteredVehicles.length ? _goToNextPage : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF3b82f6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: Text("Next", style: TextStyle(color: Colors.white)),
+                              child: Text("Next"),
                             ),
                           ],
                         ),
@@ -237,6 +272,11 @@ void _logout() {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createNewRecord,
+        backgroundColor: Color(0xFF3b82f6),
+        child: Icon(Icons.add, color: Colors.white),
       ),
     );
   }

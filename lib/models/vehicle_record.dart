@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-enum Status { RELEASED, UNRELEASED }
+enum Status { RELEASED, UNRELEASED, PENDING }
 enum SyncStatus { PENDING, SYNCED }
 
 class VehicleRecord {
@@ -28,21 +28,30 @@ class VehicleRecord {
     this.syncStatus = SyncStatus.PENDING,
   });
 
-  // Convert JSON to VehicleRecord object
-  factory VehicleRecord.fromJson(Map<String, dynamic> json) {
-    return VehicleRecord(
-      id: json['id'],
-      section: json['SECTION'],
-      plateNumber: json['PLATENUMBER'],
-      name: json['NAME'],
-      address: json['ADDRESS'],
-      area: json['AREA'],
-      status: json['STATUS'] == "RELEASED" ? Status.RELEASED : Status.UNRELEASED,
-      dateCreated: DateTime.parse(json['dateCreated']),
-      dateUpdated: DateTime.parse(json['dateUpdated']),
-      syncStatus: json['syncStatus'] == "SYNCED" ? SyncStatus.SYNCED : SyncStatus.PENDING,
-    );
-  }
+// Convert JSON to VehicleRecord object
+factory VehicleRecord.fromJson(Map<String, dynamic> json) {
+  return VehicleRecord(
+    id: json['id'] ?? "",  // Avoid null errors
+    section: json['SECTION'],
+    plateNumber: json['PLATENUMBER'],
+    name: json['NAME'],
+    address: json['ADDRESS'],
+    area: json['AREA'],
+    status: Status.values.firstWhere(
+      (e) => e.toString().split('.').last == json['STATUS'],
+      orElse: () => Status.UNRELEASED, // Default value
+    ),
+    dateCreated: DateTime.tryParse(json['dateCreated'] ?? '') ?? DateTime.now(),
+    dateUpdated: DateTime.tryParse(json['dateUpdated'] ?? '') ?? DateTime.now(),
+    syncStatus: SyncStatus.values.firstWhere(
+      (e) => e.toString().split('.').last == json['syncStatus'],
+      orElse: () => SyncStatus.PENDING, // Default value
+    ),
+  );
+}
+
+
+  
 
   // Convert VehicleRecord object to JSON
   Map<String, dynamic> toJson() {

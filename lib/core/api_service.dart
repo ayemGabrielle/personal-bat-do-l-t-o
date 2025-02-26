@@ -17,6 +17,59 @@ class ApiService {
     }
   }
 
+    // Fetch a single vehicle record by ID
+  Future<VehicleRecord?> fetchVehicleById(String id) async {
+    final response = await http.get(Uri.parse('$baseUrl/vehicle-records/$id'));
+    if (response.statusCode == 200) {
+      return VehicleRecord.fromJson(json.decode(response.body));
+    } else {
+      return null; // Handle invalid ID case
+    }
+  }
+
+    // Create a new vehicle record
+Future<void> createVehicle(VehicleRecord vehicle) async {
+  final response = await http.post(
+    Uri.parse('$baseUrl/vehicle-records'),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode(vehicle.toJson()),
+  );
+
+  if (response.statusCode != 201) {
+    throw Exception("Failed to create vehicle");
+  }
+}
+
+  // 🔄 Update vehicle record (PATCH)
+  Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/vehicle-records/$id'), // Send ID in URL
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(vehicle.toJson()), // Convert to JSON
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Vehicle updated successfully!");
+      } else {
+        print("❌ Failed to update vehicle: ${response.statusCode}");
+      }
+    } catch (error) {
+      print("🔥 Error updating vehicle: $error");
+      throw Exception("Update failed");
+    }
+  }
+
+
+  // Delete a vehicle record by ID
+  Future<void> deleteVehicle(String id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/vehicle-records/$id'));
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to delete vehicle record");
+    }
+  }
+
   // Sync offline data
   Future<void> syncOfflineVehicles(List<VehicleRecord> vehicles) async {
     final response = await http.post(

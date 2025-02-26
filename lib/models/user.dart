@@ -2,12 +2,14 @@ class User {
   final String id;
   final String username;
   final String token;
+  final String accountType;
 
 
   User({
     required this.id,
     required this.username,
     required this.token,
+    required this.accountType,
 
   });
 
@@ -16,6 +18,7 @@ factory User.fromJson(Map<String, dynamic> json) {
     id: json['id'] ?? '',  // Default to empty string if null
     username: json['username'] ?? '',
     token: json['token'] ?? '',
+    accountType: json['accountType'] ?? '',
   );
 }
 
@@ -25,6 +28,7 @@ factory User.fromJson(Map<String, dynamic> json) {
       'id': id,
       'username': username,
       'token': token,
+      'accountType': accountType,
     };
   }
 }
