@@ -166,7 +166,7 @@ void _fetchRecords() {
                 ),
                 onChanged: _updateSearchQuery,
               )
-            : Text("Vehicle Dashboard"),
+            : Text("Vehicle Records"),
         backgroundColor: Color(0xFF3b82f6), titleTextStyle: TextStyle(color: Colors.white, fontSize: 24),
         actions: [
           IconButton(
