@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'screens/basic_screen.dart';
+import 'screens/limited_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/EditVehicleScreen.dart'; // Import the edit screen
@@ -25,7 +27,9 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => LoginScreen(),
-        '/dashboard': (context) => DashboardScreen(),
+        '/admin-dashboard': (context) => DashboardScreen(),
+        '/basic-dashboard': (context) => BasicScreen(),
+        '/limited-dashboard': (context) => LimitedScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/edit-vehicle') {
