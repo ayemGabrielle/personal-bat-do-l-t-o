@@ -153,75 +153,86 @@ void _fetchRecords() {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            Expanded(
-              child: FutureBuilder<List<VehicleRecord>>(
-                future: _vehicles,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
-                  } else {
-                    List<VehicleRecord> vehicles = snapshot.data!;
-                    List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
-                      return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
-                    }).toList();
+          Expanded(
+            child: FutureBuilder<List<VehicleRecord>>(
+              future: _vehicles,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                } else {
+                  List<VehicleRecord> vehicles = snapshot.data ?? [];
 
-                    int startIndex = _currentPage * _rowsPerPage;
-                    int endIndex = startIndex + _rowsPerPage;
-                    endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
-                    List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
+                  // Hide table until search is performed
+                  if (_searchQuery.isEmpty) {
+                    return Center(child: Text("Use the search bar to find a vehicle."));
+                  }
 
-                    return Column(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
-                              child: DataTable(
-                                sortColumnIndex: _currentSortColumn,
-                                sortAscending: _isAscending,
-                                headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
-                                columns: [
-                                  DataColumn(label: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
-                                  DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
-                                ],
-                                rows: paginatedVehicles.map((vehicle) {
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(
-                                        Text(vehicle.plateNumber),
-                                        onTap: () => _showVehicleDetails(vehicle),
-                                      ),
-                                      DataCell(Text(vehicle.status.toString().split('.').last)),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
+                  List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
+                    return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
+                  }).toList();
+
+                  if (filteredVehicles.isEmpty) {
+                    return Center(child: Text("No results found."));
+                  }
+
+                  int startIndex = _currentPage * _rowsPerPage;
+                  int endIndex = startIndex + _rowsPerPage;
+                  endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
+                  List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
+
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+                            child: DataTable(
+                              sortColumnIndex: _currentSortColumn,
+                              sortAscending: _isAscending,
+                              headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
+                              columns: [
+                                DataColumn(label: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
+                                DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
+                              ],
+                              rows: paginatedVehicles.map((vehicle) {
+                                return DataRow(
+                                  cells: [
+                                    DataCell(
+                                      Text(vehicle.plateNumber),
+                                      onTap: () => _showVehicleDetails(vehicle),
+                                    ),
+                                    DataCell(Text(vehicle.status.toString().split('.').last)),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.chevron_left),
-                              onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                            ),
-                            Text("Page ${_currentPage + 1}"),
-                            IconButton(
-                              icon: Icon(Icons.chevron_right),
-                              onPressed: (_currentPage + 1) * _rowsPerPage < filteredVehicles.length ? _goToNextPage : null,
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  }
-                },
-              ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.chevron_left),
+                            onPressed: _currentPage > 0 ? _goToPreviousPage : null,
+                          ),
+                          Text("Page ${_currentPage + 1}"),
+                          IconButton(
+                            icon: Icon(Icons.chevron_right),
+                            onPressed: (_currentPage + 1) * _rowsPerPage < filteredVehicles.length ? _goToNextPage : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
+          ),
+
           ],
         ),
       ),

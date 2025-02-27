@@ -215,23 +215,34 @@ void _fetchRecords() {
         child: Column(
           children: [
             Expanded(
-              child: FutureBuilder<List<VehicleRecord>>(
-                future: _vehicles,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
-                  } else {
-                    List<VehicleRecord> vehicles = snapshot.data!;
-                    List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
-                      return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
-                    }).toList();
+                child: FutureBuilder<List<VehicleRecord>>(
+                  future: _vehicles,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text("Error: ${snapshot.error}"));
+                    } else {
+                      List<VehicleRecord> vehicles = snapshot.data ?? [];
 
-                    int startIndex = _currentPage * _rowsPerPage;
-                    int endIndex = startIndex + _rowsPerPage;
-                    endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
-                    List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
+                      // If no search is performed, display a message
+                      if (_searchQuery.isEmpty) {
+                        return Center(child: Text("Use the search bar to find a vehicle."));
+                      }
+
+                      // Apply filtering based on search query
+                      List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
+                        return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
+                      }).toList();
+
+                      if (filteredVehicles.isEmpty) {
+                        return Center(child: Text("No results found."));
+                      }
+
+                      int startIndex = _currentPage * _rowsPerPage;
+                      int endIndex = startIndex + _rowsPerPage;
+                      endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
+                      List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
 
                     return Column(
                       children: [
