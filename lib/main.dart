@@ -4,14 +4,12 @@ import 'screens/basic_screen.dart';
 import 'screens/limited_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/EditVehicleScreen.dart'; // Import the edit screen
 import 'providers/auth_provider.dart';
-import 'models/vehicle_record.dart'; // Import the VehicleRecord model
 
 void main() {
   runApp(
     ChangeNotifierProvider(
-      create: (context) => AuthProvider(),
+      create: (context) => AuthProvider()..loadUser(),
       child: MyApp(),
     ),
   );
@@ -20,26 +18,69 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Vehicle Dashboard',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/login',
-      routes: {
-        '/login': (context) => LoginScreen(),
-        '/admin-dashboard': (context) => DashboardScreen(),
-        '/basic-dashboard': (context) => BasicScreen(),
-        '/limited-dashboard': (context) => LimitedScreen(),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Vehicle Dashboard',
+          theme: ThemeData(primarySwatch: Colors.blue),
+          initialRoute: '/login',
+          onGenerateRoute: (settings) {
+            if (!authProvider.isAuthenticated) {
+              return MaterialPageRoute(builder: (context) => LoginScreen());
+            }
+
+            switch (settings.name) {
+              case '/admin-dashboard':
+                return _guardedRoute(context, authProvider, 'admin', DashboardScreen());
+              case '/basic-dashboard':
+                return _guardedRoute(context, authProvider, 'basic', BasicScreen());
+              case '/limited-dashboard':
+                return _guardedRoute(context, authProvider, 'limited', LimitedScreen());
+              default:
+                return MaterialPageRoute(builder: (context) => LoginScreen());
+            }
+          },
+        );
       },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/edit-vehicle') {
-          final vehicle = settings.arguments as VehicleRecord;
-          return MaterialPageRoute(
-            builder: (context) => EditVehicleScreen(vehicle: vehicle),
-          );
-        }
-        return null; // Handle unknown routes
-      },
+    );
+  }
+
+  // Helper function for role-based routing
+  MaterialPageRoute? _guardedRoute(
+      BuildContext context, AuthProvider authProvider, String requiredRole, Widget screen) {
+    if (authProvider.accountType == requiredRole) {
+      return MaterialPageRoute(builder: (context) => screen);
+    } else {
+      return MaterialPageRoute(
+        builder: (context) => UnauthorizedScreen(),
+      );
+    }
+  }
+}
+
+// Unauthorized access screen
+class UnauthorizedScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock, size: 80, color: Colors.red),
+            SizedBox(height: 20),
+            Text("Unauthorized Access", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            Text("You don't have permission to view this page."),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+              child: Text("Go to Login"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

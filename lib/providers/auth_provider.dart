@@ -7,12 +7,12 @@ import 'dart:convert';
 class AuthProvider with ChangeNotifier {
   User? _user;
   bool _isLoading = false;
-  String? _accountType; // Changed from role to accountType
+  String? _accountType;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _user != null;
-  String? get accountType => _accountType; // Updated getter
+  String? get accountType => _accountType;
 
   Future<void> login(String username, String password) async {
     _isLoading = true;
@@ -21,9 +21,10 @@ class AuthProvider with ChangeNotifier {
     final user = await ApiService().login(username, password);
     if (user != null) {
       _user = user;
-      _accountType = user.accountType; // Assuming API returns accountType
+      _accountType = user.accountType;
 
-      await _saveUserToStorage(user, _accountType!); // Save user and accountType
+      await _saveUserToStorage(user); // Save user with accountType
+      print("Login successful. User: ${user.username}, AccountType: ${user.accountType}");
     } else {
       print("Login failed: Invalid credentials");
     }
@@ -32,16 +33,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveUserToStorage(User user, String accountType) async {
+  Future<void> _saveUserToStorage(User user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user', jsonEncode(user.toJson()));
-    await prefs.setString('accountType', accountType); // Save accountType separately
   }
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
-    await prefs.remove('accountType'); // Clear accountType on logout
     _user = null;
     _accountType = null;
     notifyListeners();
@@ -50,24 +49,21 @@ class AuthProvider with ChangeNotifier {
   Future<void> loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString('user');
-    final storedAccountType = prefs.getString('accountType');
 
     if (userData != null) {
       _user = User.fromJson(jsonDecode(userData));
-      _accountType = storedAccountType; // Load accountType from storage
+      _accountType = _user?.accountType;
     }
 
     notifyListeners();
   }
 
-  // Helper function to check permissions
   bool hasPermission(String action) {
-    if (_accountType == "admin") return true; // Admin has full access
-    if (_accountType == "limited" && action == "delete") return false; // Limited cannot delete
-    if (_accountType == "basic" && (action == "delete" || action == "edit" || action == "create")) {
-      return false; // Basic cannot edit, create, or delete
+    if (_accountType == "admin") return true;
+    if (_accountType == "limited" && action == "delete") return false;
+    if (_accountType == "basic" && ["delete", "edit", "create"].contains(action)) {
+      return false;
     }
-    return true; // Allow other actions
+    return true;
   }
-
 }

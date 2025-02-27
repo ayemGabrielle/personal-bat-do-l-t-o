@@ -78,10 +78,15 @@ void _createNewRecord() async {
 
 
 void _editRecord(VehicleRecord vehicle) async {
-  final result = await Navigator.pushNamed(context, '/edit-vehicle', arguments: vehicle);
-  
-  if (result == true) { // If edit was successful, refresh the list
-    _fetchRecords();
+  bool? result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => EditVehicleScreen(vehicle: vehicle)),
+  );
+
+  if (result == true) {
+    setState(() {
+      _vehicles = ApiService().fetchVehicles(); // Refresh vehicle list
+    });
   }
 }
 
@@ -128,18 +133,26 @@ void _fetchRecords() {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Color(0xFFE8F0FE),
           title: Center(
             child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
           content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Plate Number: ${vehicle.plateNumber}"),
-                Text("Status: ${vehicle.status.toString().split('.').last}"),
-                Text("Created: ${vehicle.dateCreated}"),
-                Text("Updated: ${vehicle.dateUpdated}"),
-              ],
+            child: SingleChildScrollView(
+              child: Table(
+                border: TableBorder.all(color: Colors.grey, width: 1),
+                columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
+                children: [
+                  _buildTableRow("Plate Number", vehicle.plateNumber),
+                  _buildTableRow("Section", vehicle.section),
+                  _buildTableRow("Name", vehicle.name ?? 'N/A'),
+                  _buildTableRow("Address", vehicle.address ?? 'N/A'),
+                  _buildTableRow("Area", vehicle.area ?? 'N/A'),
+                  _buildTableRow("Status", vehicle.status.toString().split('.').last),
+                  _buildTableRow("Created", vehicle.dateCreated.toString()),
+                  _buildTableRow("Updated", vehicle.dateUpdated.toString()),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -150,6 +163,21 @@ void _fetchRecords() {
           ],
         );
       },
+    );
+  }
+
+  TableRow _buildTableRow(String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(value),
+        ),
+      ],
     );
   }
 
@@ -251,16 +279,16 @@ void _fetchRecords() {
                           ),
                         ),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            ElevatedButton(
+                            IconButton(
+                              icon: Icon(Icons.chevron_left),
                               onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                              child: Text("Previous"),
                             ),
                             Text("Page ${_currentPage + 1}"),
-                            ElevatedButton(
-                              onPressed: endIndex < filteredVehicles.length ? _goToNextPage : null,
-                              child: Text("Next"),
+                            IconButton(
+                              icon: Icon(Icons.chevron_right),
+                              onPressed: (_currentPage + 1) * _rowsPerPage < filteredVehicles.length ? _goToNextPage : null,
                             ),
                           ],
                         ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/vehicle_record.dart';
 import '../models/user.dart'; // Add this line to import the User model
+import 'package:jwt_decoder/jwt_decoder.dart'; // Add this line to import the jwt_decoder package
 
 class ApiService {
   static const String baseUrl = "http://localhost:3000"; // Change to your API URL
@@ -84,16 +85,32 @@ Future<void> createVehicle(VehicleRecord vehicle) async {
   }
 
   Future<User?> login(String username, String password) async {
+    print("Attempting login for username: $username"); // Logging attempt
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({'username': username, 'password': password}),
     );
 
+    print("Response Status Code: ${response.statusCode}"); // Log response code
+    print("Response Body: ${response.body}"); // Log response body
+
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return User.fromJson(data);
+      final String token = data['access_token'];
+
+      // Decode JWT to extract user details
+      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+      print("Decoded JWT: $decodedToken"); // Log decoded JWT
+
+      return User.fromJson({
+        'id': decodedToken['sub'], // Extract user ID
+        'username': decodedToken['username'], // Extract username
+        'token': token, // Store token
+        'accountType': decodedToken['accountType'], // Extract account type
+      });
     } else {
+      print("Login failed: ${response.body}"); // Log failure message
       return null; // Handle invalid login
     }
   }
@@ -101,7 +118,7 @@ Future<void> createVehicle(VehicleRecord vehicle) async {
     // Fetch logged-in user info
 Future<User?> getUserInfo(String token) async {
   final response = await http.get(
-    Uri.parse('$baseUrl/auth/me'),
+    Uri.parse('$baseUrl/users'),
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer $token",

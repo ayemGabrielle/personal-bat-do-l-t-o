@@ -78,10 +78,15 @@ void _createNewRecord() async {
 
 
 void _editRecord(VehicleRecord vehicle) async {
-  final result = await Navigator.pushNamed(context, '/edit-vehicle', arguments: vehicle);
-  
-  if (result == true) { // If edit was successful, refresh the list
-    _fetchRecords();
+  bool? result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => EditVehicleScreen(vehicle: vehicle)),
+  );
+
+  if (result == true) {
+    setState(() {
+      _vehicles = ApiService().fetchVehicles(); // Refresh vehicle list
+    });
   }
 }
 
@@ -101,9 +106,7 @@ void _fetchRecords() {
           title: Center(
             child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
-          content: SizedBox(
-            width: 400,
-            height: 300,
+          content: SingleChildScrollView(
             child: SingleChildScrollView(
               child: Table(
                 border: TableBorder.all(color: Colors.grey, width: 1),

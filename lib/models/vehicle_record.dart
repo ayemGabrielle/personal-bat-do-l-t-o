@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-enum Status { RELEASED, UNRELEASED, PENDING }
+enum Status { RELEASED, UNRELEASED }
 enum SyncStatus { PENDING, SYNCED }
 
 class VehicleRecord {

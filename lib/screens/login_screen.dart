@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -11,15 +10,32 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   final Color primaryColor = Color(0xFF3b82f6); // Tailwind Blue-500
 
   void _login() async {
+    setState(() => _isLoading = true); // Show loading state
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.login(_usernameController.text, _passwordController.text);
 
+    setState(() => _isLoading = false); // Hide loading state
+
     if (authProvider.isAuthenticated) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      String? accountType = authProvider.accountType;
+      if (accountType == "admin") {
+        Navigator.pushReplacementNamed(context, '/admin-dashboard');
+      } else if (accountType == "basic") {
+        Navigator.pushReplacementNamed(context, '/basic-dashboard');
+      } else if (accountType == "limited") {
+        Navigator.pushReplacementNamed(context, '/limited-dashboard');
+      } else {
+        print("Unknown account type: $accountType");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unknown account type. Contact support.')),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Invalid username or password')),
@@ -74,18 +90,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: true,
                       ),
                       SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                      if (_isLoading)
+                        CircularProgressIndicator()
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: Text("Login", style: TextStyle(fontSize: 16, color: Colors.white)),
                           ),
-                          child: Text("Login", style: TextStyle(fontSize: 16, color: Colors.white)),
                         ),
-                      ),
                     ],
                   ),
                 ),

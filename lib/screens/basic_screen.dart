@@ -82,9 +82,7 @@ void _fetchRecords() {
           title: Center(
             child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
-          content: SizedBox(
-            width: 400,
-            height: 300,
+          content: SingleChildScrollView(
             child: SingleChildScrollView(
               child: Table(
                 border: TableBorder.all(color: Colors.grey, width: 1),

@@ -14,7 +14,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
-  Status _selectedStatus = Status.PENDING;
+  Status _selectedStatus = Status.UNRELEASED;
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
@@ -43,62 +43,113 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Add New Vehicle")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _plateNumberController,
-                  decoration: InputDecoration(labelText: "Plate Number"),
-                  validator: (value) =>
-                      value!.isEmpty ? "Enter Plate Number" : null,
-                ),
-                TextFormField(
-                  controller: _sectionController,
-                  decoration: InputDecoration(labelText: "Section"),
-                  validator: (value) =>
-                      value!.isEmpty ? "Enter Section" : null,
-                ),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: "Name"),
-                ),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: InputDecoration(labelText: "Address"),
-                ),
-                TextFormField(
-                  controller: _areaController,
-                  decoration: InputDecoration(labelText: "Area"),
-                ),
-                DropdownButtonFormField<Status>(
-                  value: _selectedStatus,
-                  decoration: InputDecoration(labelText: "Status"),
-                  items: Status.values.map((Status status) {
-                    return DropdownMenuItem(
-                      value: status,
-                      child: Text(status.toString().split('.').last),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedStatus = newValue!;
-                    });
-                  },
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _submitForm,
-                  child: Text("Save"),
-                ),
-              ],
-            ),
+      appBar: AppBar(
+        title: Text(
+          "Add New Vehicle",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        backgroundColor: Colors.blueAccent,
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blueAccent, Colors.indigo],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 10,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Register New Vehicle",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        _buildTextField(_plateNumberController, "Plate Number", Icons.directions_car),
+                        _buildTextField(_sectionController, "Section", Icons.category),
+                        _buildTextField(_nameController, "Name", Icons.person),
+                        _buildTextField(_addressController, "Address", Icons.location_on),
+                        _buildTextField(_areaController, "Area", Icons.map),
+                        DropdownButtonFormField<Status>(
+                          value: _selectedStatus,
+                          decoration: InputDecoration(
+                            labelText: "Status",
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          items: Status.values.map((Status status) {
+                            return DropdownMenuItem(
+                              value: status,
+                              child: Text(status.toString().split('.').last),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            setState(() {
+                              _selectedStatus = newValue!;
+                            });
+                          },
+                        ),
+                        SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _submitForm,
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              backgroundColor: Colors.blueAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Text("Save", style: TextStyle(fontSize: 16, color: Colors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: Colors.blueAccent),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        validator: (value) => value!.isEmpty ? "Enter $label" : null,
       ),
     );
   }
