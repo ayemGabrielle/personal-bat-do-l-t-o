@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
+import '../core/database_helper.dart';
+import '../core/sync_service.dart';
+import '../core/connectivity_service.dart';
 
 class CreateVehicleScreen extends StatefulWidget {
   @override
@@ -16,7 +19,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _areaController = TextEditingController();
   Status _selectedStatus = Status.UNRELEASED;
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       VehicleRecord newVehicle = VehicleRecord(
         id: "", // ID assigned by backend
@@ -28,15 +31,25 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
         status: _selectedStatus,
         dateCreated: DateTime.now(),
         dateUpdated: DateTime.now(),
+        syncStatus: SyncStatus.PENDING,
       );
 
-      ApiService().createVehicle(newVehicle).then((_) {
+      try {
+        await DatabaseHelper().insertVehicle(newVehicle); // Save locally
+
+        if (await ConnectivityService().isOnline()) {
+          await SyncService().syncPendingData(); // Sync if online
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Vehicle created successfully!")),
+        );
         Navigator.pop(context, true); // Return success
-      }).catchError((error) {
+      } catch (error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: $error")),
         );
-      });
+      }
     }
   }
 

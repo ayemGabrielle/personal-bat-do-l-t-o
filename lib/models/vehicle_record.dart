@@ -51,7 +51,34 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
 }
 
 
-  
+  factory VehicleRecord.fromMap(Map<String, dynamic> map) {
+    return VehicleRecord(
+      id: map['id'],
+      plateNumber: map['plateNumber'],
+      section: map['section'],
+      name: map['name'],
+      address: map['address'],
+      area: map['area'],
+      status: map['status'],
+      dateCreated: DateTime.parse(map['dateCreated']),
+      dateUpdated: DateTime.parse(map['dateUpdated']),
+      syncStatus: map['syncStatus'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'plateNumber': plateNumber,
+      'section': section,
+      'name': name,
+      'address': address,
+      'area': area,
+      'status': status,
+      'syncStatus': syncStatus,
+    };
+  }
+
 
   // Convert VehicleRecord object to JSON
   Map<String, dynamic> toJson() {

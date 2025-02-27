@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
+import '../core/database_helper.dart';
+import '../core/sync_service.dart';
+import '../core/connectivity_service.dart';
 
 class EditVehicleScreen extends StatefulWidget {
   final VehicleRecord vehicle;
@@ -47,7 +50,12 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
       );
 
       try {
-        await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
+        await DatabaseHelper().insertVehicle(updatedVehicle); // Save locally
+
+        if (await ConnectivityService().isOnline()) {
+          await SyncService().syncPendingData(); // Sync if online
+        }
+
         Navigator.pop(context, true); // Return success
       } catch (error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +70,7 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Edit Vehicle Details",
+          "Edit Vehicle",
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
