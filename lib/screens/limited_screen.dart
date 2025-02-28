@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import './CreateVehicleScreen.dart'; // Add this import
 import './EditVehicleScreen.dart'; // Add this import
+import 'package:shared_preferences/shared_preferences.dart'; // Add this import
 
 class LimitedScreen extends StatefulWidget {
   @override
@@ -24,7 +27,8 @@ class _LimitedScreenState extends State<LimitedScreen> {
   @override
   void initState() {
     super.initState();
-    _vehicles = ApiService().fetchVehicles();
+    _vehicles = Future.value([]); // Initialize with an empty list
+    _fetchRecords();
   }
 
   void _updateSearchQuery(String query) {
@@ -90,10 +94,19 @@ void _editRecord(VehicleRecord vehicle) async {
   }
 }
 
-void _fetchRecords() {
-  setState(() {
-    _vehicles = ApiService().fetchVehicles();
-  });
+void _fetchRecords() async {
+  try {
+    List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+    setState(() {
+      _vehicles = Future.value(vehicles);
+    });
+    _saveVehiclesToLocal(vehicles); // Save fetched data
+  } catch (e) {
+    // Load from local storage if API fails
+    setState(() {
+      _vehicles = _loadVehiclesFromLocal();
+    });
+  }
 }
 
 
@@ -284,4 +297,24 @@ void _fetchRecords() {
       ),
     );
   }
+      // Save vehicle data to local storage
+    Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String> vehicleJsonList = vehicles.map((v) => jsonEncode(v.toJson())).toList();
+      await prefs.setStringList('vehicles', vehicleJsonList);
+    }
+
+    // Load vehicles from local storage
+    Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String>? vehicleJsonList = prefs.getStringList('vehicles');
+      
+      if (vehicleJsonList != null) {
+        return vehicleJsonList.map((json) => VehicleRecord.fromJson(jsonDecode(json))).toList();
+      } else {
+        return [];
+      }
+    }
+
+
 }

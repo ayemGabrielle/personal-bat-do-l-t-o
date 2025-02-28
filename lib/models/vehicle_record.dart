@@ -95,4 +95,6 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
       'syncStatus': syncStatus.toString().split('.').last,
     };
   }
+
+  
 }

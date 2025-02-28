@@ -1,3 +1,4 @@
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../models/user.dart';
@@ -30,7 +31,7 @@ class AuthProvider with ChangeNotifier {
         _accountType = user.accountType;
     print("🟡 Received Access Token: ${user.token}"); // Debugging
 
-    await _saveUserToStorage(_user!, user.token); // ✅ Pass token correctly
+    await _saveUserToStorage(_user!, user.token, password); // ✅ Pass token correctly
 
         print("Login successful. User: ${user.username}, AccountType: ${user.accountType}");
       } else {
@@ -38,7 +39,7 @@ class AuthProvider with ChangeNotifier {
       }
     } else {
       // Offline login (use stored credentials)
-      bool success = await tryOfflineLogin(username);
+      bool success = await tryOfflineLogin(username, password);
       if (!success) {
         print("Offline login failed: Invalid credentials");
       }
@@ -48,37 +49,56 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-Future<void> _saveUserToStorage(User user, String token) async {
-    final prefs = await SharedPreferences.getInstance();
+Future<void> _saveUserToStorage(User user, String token, String password) async {
+  final prefs = await SharedPreferences.getInstance();
 
-    print("🟡 Saving Access Token: $token"); // Debugging
+  // Hash the password before storing it
+  String hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
-    final userData = jsonEncode({
-        "id": user.id,
-        "username": user.username,
-        "token": token, // ✅ Ensure token is saved correctly
-        "accountType": user.accountType,
-    });
+  final userData = jsonEncode({
+    "id": user.id,
+    "username": user.username,
+    "password": hashedPassword, // ✅ Now includes hashed password
+    "accountType": user.accountType,
+  });
 
-    await prefs.setString('user', userData);
-    await prefs.setString('token', token); // ✅ Store token separately
+  await prefs.setString('user', userData);
+  await prefs.setString('token', token);
 
-    print("🟢 Stored User: $userData");
-    print("🟢 Stored Token: $token");
-
-    // Verify storage
-    final storedUser = prefs.getString('user');
-    final storedAccessToken = prefs.getString('token');
-    print("🔍 Verification: Read Back User Data: $storedUser");
-    print("🔍 Verification: Read Back Token: $storedAccessToken");
+  print("🟢 Stored User: $userData");
 }
 
 
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    notifyListeners();
-    print("🔴 User logged out.");
+Future<void> logout() async {
+  final prefs = await SharedPreferences.getInstance();
+
+  // Preserve user data but remove authentication token
+  final storedUserData = prefs.getString('user');
+  if (storedUserData != null) {
+    final Map<String, dynamic> userJson = jsonDecode(storedUserData);
+
+    // Keep only username and accountType for offline login
+    final updatedUserData = jsonEncode({
+      "id": userJson["id"],
+      "username": userJson["username"],
+      "password": userJson["password"],  // ✅ Keep the hashed password
+      "accountType": userJson["accountType"],
+    });
+
+    await prefs.setString('user', updatedUserData);
+    print("🟡 Preserving user data for offline login: $updatedUserData");
   }
+
+  // Remove only the access token to force re-authentication online
+  await prefs.remove('token');
+  
+  _user = null;
+  _accountType = null;
+  notifyListeners();
+  
+  print("🔴 User logged out. Credentials saved for offline login.");
+}
+
 
   Future<void> loadUser() async {
     final prefs = await SharedPreferences.getInstance();
@@ -92,37 +112,38 @@ Future<void> _saveUserToStorage(User user, String token) async {
     notifyListeners();
   }
 
-  Future<bool> tryOfflineLogin(String username) async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedUserData = prefs.getString('user');
-    final storedToken = prefs.getString('token'); // ✅ Correct token key
+Future<bool> tryOfflineLogin(String username, String password) async {
+  final prefs = await SharedPreferences.getInstance();
+  final storedUserData = prefs.getString('user');
 
-    // Debugging logs
-    print("🔵 Retrieved User Data (RAW): $storedUserData");
-    print("🔵 Retrieved Token: $storedToken");
+  print("🔵 Retrieved User Data (RAW): $storedUserData");
 
-    if (storedUserData != null && storedToken != null) {
-      try {
-        final Map<String, dynamic> storedUser = jsonDecode(storedUserData);
+  if (storedUserData != null) {
+    try {
+      final Map<String, dynamic> storedUser = jsonDecode(storedUserData);
 
-        // Ensure username matches
-        if (storedUser['username'] == username) {
-          _user = User.fromJson(storedUser);
-          _accountType = storedUser['accountType'];
-          notifyListeners();
-          print("✅ Offline login successful!");
-          return true;
-        } else {
-          print("❌ Username mismatch. Expected: $username, Found: ${storedUser['username']}");
-        }
-      } catch (e) {
-        print("❌ Error decoding user data: $e");
+      // Hash the entered password to compare with stored hash
+      String hashedInputPassword = sha256.convert(utf8.encode(password)).toString();
+
+      if (storedUser['username'] == username && storedUser['password'] == hashedInputPassword) {
+        _user = User.fromJson(storedUser);
+        _accountType = storedUser['accountType'];
+        notifyListeners();
+        print("✅ Offline login successful!");
+        return true;
+      } else {
+        print("❌ Incorrect username or password.");
       }
-    } else {
-      print("❌ No stored credentials found.");
+    } catch (e) {
+      print("❌ Error decoding user data: $e");
     }
-    return false;
+  } else {
+    print("❌ No stored credentials found.");
   }
+  return false;
+}
+
+
 
   bool hasPermission(String action) {
     if (_accountType == "admin") return true;
