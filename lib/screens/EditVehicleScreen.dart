@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
 
@@ -29,52 +33,116 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
     _addressController = TextEditingController(text: widget.vehicle.address ?? "");
     _areaController = TextEditingController(text: widget.vehicle.area ?? "");
     _selectedStatus = widget.vehicle.status;
-  }
+    _syncPendingEdits();
 
-void _submitForm() async {
-  if (_formKey.currentState!.validate()) {
-    VehicleRecord updatedVehicle = VehicleRecord(
-      id: widget.vehicle.id,
-      plateNumber: _plateNumberController.text.trim(),
-      section: _sectionController.text.trim(),
-      name: _nameController.text.trim(),
-      address: _addressController.text.trim(),
-      area: _areaController.text.trim(),
-      status: _selectedStatus!,
-      dateCreated: widget.vehicle.dateCreated, // Keep original dateCreated
-      dateUpdated: DateTime.now(), // Update timestamp
-      syncStatus: SyncStatus.PENDING, // Mark as pending sync
-    );
+  // Listen for internet restoration and sync when online
+  Connectivity().onConnectivityChanged.listen((connectivityResult) {
+    if (connectivityResult != ConnectivityResult.none) {
+      _syncPendingEdits();
+    }
+  });
+}
 
-    try {
-      await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
-      
-      // Show success dialog
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("Success"),
-            content: Text("Vehicle record has been updated successfully."),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close the dialog
-                  Navigator.pop(context, true); // Return success
-                },
-                child: Text("OK"),
-              ),
-            ],
-          );
-        },
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      VehicleRecord updatedVehicle = VehicleRecord(
+        id: widget.vehicle.id,
+        plateNumber: _plateNumberController.text.trim(),
+        section: _sectionController.text.trim(),
+        name: _nameController.text.trim(),
+        address: _addressController.text.trim(),
+        area: _areaController.text.trim(),
+        status: _selectedStatus!,
+        dateCreated: widget.vehicle.dateCreated,
+        dateUpdated: DateTime.now(),
       );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $error")),
-      );
+
+      var connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult != ConnectivityResult.none) {
+        try {
+          await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
+          _showSuccessDialog();
+        } catch (error) {
+          _showErrorSnackbar(error.toString());
+        }
+      } else {
+        await _savePendingEdit(updatedVehicle);
+        _showSuccessDialog(isOffline: true);
+      }
     }
   }
+
+Future<void> _savePendingEdit(VehicleRecord vehicle) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits') ?? [];
+  pendingEdits.add(jsonEncode(vehicle.toJson()));
+
+  await prefs.setStringList('pending_vehicle_edits', pendingEdits);
+  print("📌 Saved pending edit for vehicle ${vehicle.id}");
 }
+
+
+Future<void> _syncPendingEdits() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
+
+  if (pendingEdits != null && pendingEdits.isNotEmpty) {
+    print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult != ConnectivityResult.none) {
+      List<VehicleRecord> vehicles = pendingEdits
+          .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+          .toList();
+
+      for (var vehicle in vehicles) {
+        try {
+          await ApiService().updateVehicle(vehicle.id, vehicle);
+          print("✅ Successfully synced vehicle ${vehicle.id}");
+        } catch (e) {
+          print("❌ Error syncing vehicle ${vehicle.id}: $e");
+        }
+      }
+
+      await prefs.remove('pending_vehicle_edits');
+      print("✅ All pending edits cleared");
+    } else {
+      print("⚠️ Still offline, cannot sync pending edits.");
+    }
+  } else {
+    print("✅ No pending edits to sync.");
+  }
+}
+
+
+  void _showSuccessDialog({bool isOffline = false}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Success"),
+          content: Text(isOffline
+              ? "Vehicle edit saved offline. It will be synced when online."
+              : "Vehicle record has been updated successfully."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context, true);
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $message")),
+    );
+  }
 
 
   @override
@@ -84,7 +152,7 @@ void _submitForm() async {
         title: Text(
           "Edit Vehicle",
           style: TextStyle(
-            color: Colors.white,
+            color: const Color.fromRGBO(255, 255, 255, 1),
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

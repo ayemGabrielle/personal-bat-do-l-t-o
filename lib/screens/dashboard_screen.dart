@@ -7,6 +7,10 @@ import './CreateVehicleScreen.dart'; // Add this import
 import './EditVehicleScreen.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // Add this import
+import 'package:shared_preferences/shared_preferences.dart'; // For local storage
+import 'dart:convert'; // For JSON encoding/decoding
+import 'package:connectivity_plus/connectivity_plus.dart'; // To check internet connection
+
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -94,53 +98,145 @@ void _editRecord(VehicleRecord vehicle) async {
   }
 }
 
+// void _fetchRecords() async {
+//   try {
+//     await _syncPendingRecords(); // Sync offline data when fetching
+//     List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+//     setState(() {
+//       _vehicles = Future.value(vehicles);
+//     });
+//     _saveVehiclesToLocal(vehicles); // Save fetched data
+//   } catch (e) {
+//     setState(() {
+//       _vehicles = _loadVehiclesFromLocal();
+//     });
+//   }
+// }
+
 void _fetchRecords() async {
-  try {
-    List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
-    setState(() {
-      _vehicles = Future.value(vehicles);
-    });
-    _saveVehiclesToLocal(vehicles); // Save fetched data
-  } catch (e) {
-    // Load from local storage if API fails
+  var connectivityResult = await Connectivity().checkConnectivity();
+  
+  if (connectivityResult == ConnectivityResult.none) {
+    print("No internet connection. Loading from local storage...");
     setState(() {
       _vehicles = _loadVehiclesFromLocal();
     });
+  } else {
+    try {
+      await _syncPendingRecords(); // Sync offline data
+      List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+      print("Fetched ${vehicles.length} records from API.");
+      setState(() {
+        _vehicles = Future.value(vehicles);
+      });
+      _saveVehiclesToLocal(vehicles);
+    } catch (e) {
+      print("API fetch failed: $e. Loading from local storage...");
+      setState(() {
+        _vehicles = _loadVehiclesFromLocal();
+      });
+    }
+  }
+}
+
+
+
+Future<void> _syncPendingRecords() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  
+  // Sync pending deletions
+  List<String>? pendingDeletions = prefs.getStringList('pending_deletions');
+  if (pendingDeletions != null && pendingDeletions.isNotEmpty) {
+    List<String> remainingDeletions = [];
+
+    for (String id in pendingDeletions) {
+      try {
+        await ApiService().deleteVehicle(id);
+      } catch (e) {
+        remainingDeletions.add(id); // Keep failed deletions for later sync
+      }
+    }
+
+    await prefs.setStringList('pending_deletions', remainingDeletions);
+  }
+
+  // Sync other pending records (existing logic)
+  List<String>? pendingRecords = prefs.getStringList('pending_vehicles');
+  if (pendingRecords != null && pendingRecords.isNotEmpty) {
+    List<String> remainingRecords = [];
+
+    for (String recordJson in pendingRecords) {
+      try {
+        VehicleRecord record = VehicleRecord.fromJson(jsonDecode(recordJson));
+        await ApiService().createVehicle(record);
+      } catch (e) {
+        remainingRecords.add(recordJson); // Keep failed records for later sync
+      }
+    }
+
+    await prefs.setStringList('pending_vehicles', remainingRecords);
   }
 }
 
 
 
 
-  void _deleteRecord(String id) {
-    // Show confirmation dialog before deleting
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text("Confirm Delete"),
-          content: Text("Are you sure you want to delete this vehicle record?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                ApiService().deleteVehicle(id).then((_) {
-                  setState(() {
-                    _vehicles = ApiService().fetchVehicles(); // Refresh list after delete
-                  });
-                  Navigator.pop(context);
+
+void _deleteRecord(String id) {
+  // Show confirmation dialog before deleting
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text("Confirm Delete"),
+        content: Text("Are you sure you want to delete this vehicle record?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog before processing
+              var connectivityResult = await Connectivity().checkConnectivity();
+              
+              if (connectivityResult == ConnectivityResult.none) {
+                // No internet: Save the deletion request locally
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                List<String>? pendingDeletions = prefs.getStringList('pending_deletions') ?? [];
+                pendingDeletions.add(id);
+                await prefs.setStringList('pending_deletions', pendingDeletions);
+                
+                // Also remove from local storage
+                List<VehicleRecord> vehicles = await _loadVehiclesFromLocal();
+                vehicles.removeWhere((vehicle) => vehicle.id == id);
+                await _saveVehiclesToLocal(vehicles);
+                
+                setState(() {
+                  _vehicles = Future.value(vehicles); // Update UI
                 });
-              },
-              child: Text("Delete", style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+              } else {
+                // Online: Delete immediately
+                try {
+                  await ApiService().deleteVehicle(id);
+                  List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+                  await _saveVehiclesToLocal(vehicles); // Update local storage
+                  setState(() {
+                    _vehicles = Future.value(vehicles);
+                  });
+                } catch (e) {
+                  print("Failed to delete online: $e");
+                }
+              }
+            },
+            child: Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 
   void _showVehicleDetails(VehicleRecord vehicle) {
     showDialog(
@@ -341,15 +437,24 @@ void _fetchRecords() async {
     }
 
     // Load vehicles from local storage
-    Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String>? vehicleJsonList = prefs.getStringList('vehicles');
-      
-      if (vehicleJsonList != null) {
-        return vehicleJsonList.map((json) => VehicleRecord.fromJson(jsonDecode(json))).toList();
-      } else {
-        return [];
-      }
+Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? vehicleJsonList = prefs.getStringList('vehicles');
+
+  if (vehicleJsonList != null) {
+    try {
+      List<VehicleRecord> vehicles = vehicleJsonList.map((json) => VehicleRecord.fromJson(jsonDecode(json))).toList();
+      print("Loaded ${vehicles.length} vehicles from local storage.");
+      return vehicles;
+    } catch (e) {
+      print("Error decoding local storage data: $e");
+      return [];
     }
+  } else {
+    print("No vehicles found in local storage.");
+    return [];
+  }
+}
+
 
 }

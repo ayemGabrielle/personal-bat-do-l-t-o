@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../models/vehicle_record.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class CreateVehicleScreen extends StatefulWidget {
   @override
@@ -16,48 +19,103 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _areaController = TextEditingController();
   Status _selectedStatus = Status.UNRELEASED;
 
-void _submitForm() {
-  if (_formKey.currentState!.validate()) {
-    VehicleRecord newVehicle = VehicleRecord(
-      id: "", // ID assigned by backend
-      plateNumber: _plateNumberController.text.trim(),
-      section: _sectionController.text.trim(),
-      name: _nameController.text.trim(),
-      address: _addressController.text.trim(),
-      area: _areaController.text.trim(),
-      status: _selectedStatus,
-      dateCreated: DateTime.now(),
-      dateUpdated: DateTime.now(),
-    );
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      VehicleRecord newVehicle = VehicleRecord(
+        id: "", // ID assigned by backend
+        plateNumber: _plateNumberController.text.trim(),
+        section: _sectionController.text.trim(),
+        name: _nameController.text.trim(),
+        address: _addressController.text.trim(),
+        area: _areaController.text.trim(),
+        status: _selectedStatus,
+        dateCreated: DateTime.now(),
+        dateUpdated: DateTime.now(),
+      );
 
-    ApiService().createVehicle(newVehicle).then((_) {
-      // Show success dialog
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("Success"),
-            content: Text("Vehicle record has been added successfully."),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close the dialog
-                  Navigator.pop(context, true); // Return success
-                },
-                child: Text("OK"),
-              ),
-            ],
-          );
-        },
-      );
-    }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $error")),
-      );
-    });
+      var connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult != ConnectivityResult.none) {
+        // Device is online - send to API
+        try {
+          await ApiService().createVehicle(newVehicle);
+          _showSuccessDialog();
+        } catch (error) {
+          _showErrorSnackbar(error.toString());
+        }
+      } else {
+        // Device is offline - save to local storage
+        await _savePendingRecord(newVehicle);
+        _showSuccessDialog(isOffline: true);
+      }
+    }
   }
-}
 
+
+ Future<void> _savePendingRecord(VehicleRecord vehicle) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingRecords = prefs.getStringList('pending_vehicles') ?? [];
+    pendingRecords.add(jsonEncode(vehicle.toJson()));
+    await prefs.setStringList('pending_vehicles', pendingRecords);
+  }
+
+  Future<void> _syncPendingRecords() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingRecords = prefs.getStringList('pending_vehicles');
+
+    if (pendingRecords != null && pendingRecords.isNotEmpty) {
+      var connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult != ConnectivityResult.none) {
+        List<VehicleRecord> vehicles = pendingRecords
+            .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+            .toList();
+
+        for (var vehicle in vehicles) {
+          try {
+            await ApiService().createVehicle(vehicle);
+          } catch (e) {
+            print("Error syncing record: $e");
+          }
+        }
+
+        await prefs.remove('pending_vehicles'); // Clear after syncing
+      }
+    }
+  }
+
+  void _showSuccessDialog({bool isOffline = false}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Success"),
+          content: Text(isOffline
+              ? "Vehicle saved offline. It will be synced when online."
+              : "Vehicle record has been added successfully."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close the dialog
+                Navigator.pop(context, true); // Return success
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $message")),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncPendingRecords(); // Try syncing pending records when screen loads
+  }
 
   @override
   Widget build(BuildContext context) {
