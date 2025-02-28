@@ -91,7 +91,16 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
                           ),
                         ),
                         SizedBox(height: 20),
-                        _buildTextField(_plateNumberController, "Plate Number", Icons.directions_car),
+                        _buildTextField(_plateNumberController, "Plate Number", Icons.directions_car, validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Enter Plate Number";
+                              }
+                              if (value.length != 6) {
+                                return "Plate Number must be exactly 6 characters";
+                              }
+                              return null;
+                            },),
+
                         _buildTextField(_sectionController, "Section", Icons.category),
                         _buildTextField(_nameController, "Name", Icons.person),
                         _buildTextField(_addressController, "Address", Icons.location_on),
@@ -139,7 +148,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {String? Function(String?)? validator}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
@@ -149,7 +158,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
           prefixIcon: Icon(icon, color: Colors.blueAccent),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        validator: (value) => value!.isEmpty ? "Enter $label" : null,
+      validator: validator, // Use the passed validator function
       ),
     );
   }

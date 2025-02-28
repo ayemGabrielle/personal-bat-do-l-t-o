@@ -64,7 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _logout() {
     Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushReplacementNamed(context, '/login');
-    
+
   }
 
 void _createNewRecord() async {
@@ -147,7 +147,6 @@ void _fetchRecords() async {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Color(0xFFE8F0FE),
           title: Center(
             child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ),
