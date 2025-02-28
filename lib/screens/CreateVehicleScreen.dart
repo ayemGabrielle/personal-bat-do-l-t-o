@@ -16,29 +16,48 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _areaController = TextEditingController();
   Status _selectedStatus = Status.UNRELEASED;
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      VehicleRecord newVehicle = VehicleRecord(
-        id: "", // ID assigned by backend
-        plateNumber: _plateNumberController.text.trim(),
-        section: _sectionController.text.trim(),
-        name: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        area: _areaController.text.trim(),
-        status: _selectedStatus,
-        dateCreated: DateTime.now(),
-        dateUpdated: DateTime.now(),
-      );
+void _submitForm() {
+  if (_formKey.currentState!.validate()) {
+    VehicleRecord newVehicle = VehicleRecord(
+      id: "", // ID assigned by backend
+      plateNumber: _plateNumberController.text.trim(),
+      section: _sectionController.text.trim(),
+      name: _nameController.text.trim(),
+      address: _addressController.text.trim(),
+      area: _areaController.text.trim(),
+      status: _selectedStatus,
+      dateCreated: DateTime.now(),
+      dateUpdated: DateTime.now(),
+    );
 
-      ApiService().createVehicle(newVehicle).then((_) {
-        Navigator.pop(context, true); // Return success
-      }).catchError((error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $error")),
-        );
-      });
-    }
+    ApiService().createVehicle(newVehicle).then((_) {
+      // Show success dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("Success"),
+            content: Text("Vehicle record has been added successfully."),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close the dialog
+                  Navigator.pop(context, true); // Return success
+                },
+                child: Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $error")),
+      );
+    });
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

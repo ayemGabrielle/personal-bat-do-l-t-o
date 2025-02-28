@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       builder: (context, authProvider, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Vehicle Dashboard',
+          title: 'LTO Vehicle Records',
           theme: ThemeData(primarySwatch: Colors.blue),
           initialRoute: '/login',
           onGenerateRoute: (settings) {

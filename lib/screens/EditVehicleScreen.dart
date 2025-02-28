@@ -31,31 +31,51 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
     _selectedStatus = widget.vehicle.status;
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      VehicleRecord updatedVehicle = VehicleRecord(
-        id: widget.vehicle.id,
-        plateNumber: _plateNumberController.text.trim(),
-        section: _sectionController.text.trim(),
-        name: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        area: _areaController.text.trim(),
-        status: _selectedStatus!,
-        dateCreated: widget.vehicle.dateCreated, // Keep original dateCreated
-        dateUpdated: DateTime.now(), // Update timestamp
-        syncStatus: SyncStatus.PENDING, // Mark as pending sync
-      );
+void _submitForm() async {
+  if (_formKey.currentState!.validate()) {
+    VehicleRecord updatedVehicle = VehicleRecord(
+      id: widget.vehicle.id,
+      plateNumber: _plateNumberController.text.trim(),
+      section: _sectionController.text.trim(),
+      name: _nameController.text.trim(),
+      address: _addressController.text.trim(),
+      area: _areaController.text.trim(),
+      status: _selectedStatus!,
+      dateCreated: widget.vehicle.dateCreated, // Keep original dateCreated
+      dateUpdated: DateTime.now(), // Update timestamp
+      syncStatus: SyncStatus.PENDING, // Mark as pending sync
+    );
 
-      try {
-        await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
-        Navigator.pop(context, true); // Return success
-      } catch (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $error")),
-        );
-      }
+    try {
+      await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
+      
+      // Show success dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("Success"),
+            content: Text("Vehicle record has been updated successfully."),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close the dialog
+                  Navigator.pop(context, true); // Return success
+                },
+                child: Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $error")),
+      );
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
