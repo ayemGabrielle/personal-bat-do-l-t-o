@@ -29,11 +29,11 @@ class AuthProvider with ChangeNotifier {
       if (user != null) {
         _user = user;
         _accountType = user.accountType;
-    print("🟡 Received Access Token: ${user.token}"); // Debugging
+    // print("🟡 Received Access Token: ${user.token}"); // Debugging
 
     await _saveUserToStorage(_user!, user.token, password); // ✅ Pass token correctly
 
-        print("Login successful. User: ${user.username}, AccountType: ${user.accountType}");
+        print("Login successful");
       } else {
         print("Login failed: Invalid credentials");
       }
@@ -65,7 +65,7 @@ Future<void> _saveUserToStorage(User user, String token, String password) async 
   await prefs.setString('user', userData);
   await prefs.setString('token', token);
 
-  print("🟢 Stored User: $userData");
+  // print("🟢 Stored User: $userData");
 }
 
 
@@ -86,7 +86,7 @@ Future<void> logout() async {
     });
 
     await prefs.setString('user', updatedUserData);
-    print("🟡 Preserving user data for offline login: $updatedUserData");
+    print("🟡 Preserving user data for offline login");
   }
 
   // Remove only the access token to force re-authentication online

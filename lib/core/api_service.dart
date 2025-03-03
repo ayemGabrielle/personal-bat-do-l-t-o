@@ -53,7 +53,7 @@ Future<void> createVehicle(VehicleRecord vehicle) async {
       if (response.statusCode == 200) {
         print("✅ Vehicle updated successfully!");
       } else {
-        print("❌ Failed to update vehicle: ${response.statusCode}");
+        print("❌ Failed to update vehicle");
       }
     } catch (error) {
       print("🔥 Error updating vehicle: $error");
@@ -93,7 +93,7 @@ Future<void> createVehicle(VehicleRecord vehicle) async {
     );
 
     print("Response Status Code: ${response.statusCode}"); // Log response code
-    print("Response Body: ${response.body}"); // Log response body
+    // print("Response Body: ${response.body}"); // Log response body
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -101,7 +101,7 @@ Future<void> createVehicle(VehicleRecord vehicle) async {
 
       // Decode JWT to extract user details
       Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-      print("Decoded JWT: $decodedToken"); // Log decoded JWT
+      // print("Decoded JWT: $decodedToken"); // Log decoded JWT
 
       return User.fromJson({
         'id': decodedToken['sub'], // Extract user ID
