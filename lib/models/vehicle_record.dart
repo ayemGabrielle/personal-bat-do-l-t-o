@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-enum Status { RELEASED, UNRELEASED }
+enum Status { Released, Unreleased }
 enum SyncStatus { PENDING, SYNCED }
 
 class VehicleRecord {
@@ -22,7 +22,7 @@ class VehicleRecord {
     this.name,
     this.address,
     this.area,
-    this.status = Status.UNRELEASED,
+    this.status = Status.Unreleased,
     required this.dateCreated,
     required this.dateUpdated,
     this.syncStatus = SyncStatus.PENDING,
@@ -39,7 +39,7 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
     area: json['AREA'],
     status: Status.values.firstWhere(
       (e) => e.toString().split('.').last == json['STATUS'],
-      orElse: () => Status.UNRELEASED, // Default value
+      orElse: () => Status.Unreleased, // Default value
     ),
     dateCreated: DateTime.tryParse(json['dateCreated'] ?? '') ?? DateTime.now(),
     dateUpdated: DateTime.tryParse(json['dateUpdated'] ?? '') ?? DateTime.now(),
