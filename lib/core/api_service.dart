@@ -1,11 +1,52 @@
 import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle_record.dart';
 import '../models/user.dart'; // Add this line to import the User model
 import 'package:jwt_decoder/jwt_decoder.dart'; // Add this line to import the jwt_decoder package
 
 class ApiService {
   static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
+
+  Future<bool> _isOnline() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+
+    Future<void> _savePendingChanges(String key, Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> pendingChanges = prefs.getStringList(key) ?? [];
+    pendingChanges.add(jsonEncode(data));
+    await prefs.setStringList(key, pendingChanges);
+  }
+
+  Future<void> _saveOffline(String key, VehicleRecord vehicle) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> offlineData = prefs.getStringList(key) ?? [];
+    offlineData.add(jsonEncode(vehicle.toJson()));
+    await prefs.setStringList(key, offlineData);
+  }
+
+  Future<void> _syncPendingChanges() async {
+    if (!await _isOnline()) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    List<String> pendingCreates = prefs.getStringList("pending_creates") ?? [];
+    List<String> pendingUpdates = prefs.getStringList("pending_updates") ?? [];
+
+    for (String item in pendingCreates) {
+      VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(item));
+      await createVehicle(vehicle);
+    }
+    for (String item in pendingUpdates) {
+      Map<String, dynamic> updateData = jsonDecode(item);
+      await updateVehicle(updateData["id"], VehicleRecord.fromJson(updateData["vehicle"]));
+    }
+
+    await prefs.remove("pending_creates");
+    await prefs.remove("pending_updates");
+  }
 
   // Fetch all vehicle records
   Future<List<VehicleRecord>> fetchVehicles() async {
@@ -29,35 +70,35 @@ class ApiService {
   }
 
     // Create a new vehicle record
-Future<void> createVehicle(VehicleRecord vehicle) async {
-  final response = await http.post(
-    Uri.parse('$baseUrl/vehicle-records'),
-    headers: {"Content-Type": "application/json"},
-    body: jsonEncode(vehicle.toJson()),
-  );
-
-  if (response.statusCode != 201) {
-    throw Exception("Failed to create vehicle");
+  Future<void> createVehicle(VehicleRecord vehicle, {bool offline = true}) async {
+    if (await _isOnline()) {
+      final response = await http.post(
+        Uri.parse('$baseUrl/vehicle-records'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(vehicle.toJson()),
+      );
+      if (response.statusCode != 201) {
+        throw Exception("Failed to create vehicle");
+      }
+    } else if (offline) {
+      await _saveOffline('offline_create', vehicle);
+    }
   }
-}
+
 
   // 🔄 Update vehicle record (PATCH)
   Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
-    try {
+    if (await _isOnline()) {
       final response = await http.patch(
-        Uri.parse('$baseUrl/vehicle-records/$id'), // Send ID in URL
+        Uri.parse('$baseUrl/vehicle-records/$id'),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(vehicle.toJson()), // Convert to JSON
+        body: jsonEncode(vehicle.toJson()),
       );
-
-      if (response.statusCode == 200) {
-        print("✅ Vehicle updated successfully!");
-      } else {
-        print("❌ Failed to update vehicle");
+      if (response.statusCode != 200) {
+        throw Exception("Failed to update vehicle");
       }
-    } catch (error) {
-      print("🔥 Error updating vehicle: $error");
-      throw Exception("Update failed");
+    } else {
+      await _savePendingChanges("pending_updates", {"id": id, "vehicle": vehicle.toJson()});
     }
   }
 

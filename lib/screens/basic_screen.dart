@@ -66,8 +66,8 @@ class _BasicScreenState extends State<BasicScreen> {
   void _logout() {
     Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushReplacementNamed(context, '/login');
-  }
 
+  }
 
 
 void _fetchRecords() async {
@@ -83,6 +83,31 @@ void _fetchRecords() async {
       _vehicles = _loadVehiclesFromLocal();
     });
   }
+}
+
+void _confirmLogout() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text("Confirm Logout"),
+        content: Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), // Close dialog
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _logout(); // Proceed with logout
+            },
+            child: Text("Logout", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 
@@ -109,6 +134,7 @@ void _fetchRecords() async {
                   _buildTableRow("Status", vehicle.status.toString().split('.').last),
                   _buildTableRow("Created", vehicle.dateCreated.toString()),
                   _buildTableRow("Updated", vehicle.dateUpdated.toString()),
+                  _buildTableRow("Status Updated", vehicle.formattedStatusUpdateDate),
                 ],
               ),
             ),
@@ -137,31 +163,48 @@ void _fetchRecords() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+      automaticallyImplyLeading: false,  // This removes the back button
         title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: TextStyle(color: Colors.white, fontSize: 18),
-                decoration: InputDecoration(
-                  hintText: "Search by Plate Number...",
-                  hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
-                  border: InputBorder.none,
-                ),
-                onChanged: _updateSearchQuery,
-              )
-            : Text("Vehicle Records"),
-        backgroundColor: Color(0xFF3b82f6), titleTextStyle: TextStyle(color: Colors.white, fontSize: 24),
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
-            onPressed: _toggleSearch,
+      ? TextField(
+          controller: _searchController,
+          autofocus: true,
+          style: TextStyle(color: Colors.white, fontSize: 20),
+          decoration: InputDecoration(
+            hintText: "Search by Plate Number...",
+            hintStyle: TextStyle(
+              color: Colors.white70,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+            border: InputBorder.none,
           ),
+          onChanged: _updateSearchQuery,
+        )
+      : Text(
+          'Vehicle Records',
+          style: TextStyle(
+            fontSize: 26, 
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+          backgroundColor: Color(0xFF3b82f6),
+          titleTextStyle: TextStyle(
+              color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isSearching ? Icons.close : Icons.search,
+                color: Colors.white,
+                size: 28,
+              ),
+              onPressed: _toggleSearch,
+            ),
           IconButton(
             icon: Icon(Icons.logout, color: Colors.red),
-            onPressed: _logout,
+            onPressed: _confirmLogout,
           ),
-        ],
-      ),
+          ],
+        ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -179,8 +222,55 @@ void _fetchRecords() async {
 
                   // Hide table until search is performed
                   if (_searchQuery.isEmpty) {
-                    return Center(child: Text("Use the search bar to find a vehicle."));
-                  }
+                      return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min, // Ensures column shrinks to fit
+                            children: [
+                              // Extra spacing at the top
+                              SizedBox(height: 40), // Adjust as needed
+
+                              // Logo & Text
+                              Image.asset(
+                                "images/app_icon.png",
+                                width: 200,
+                                height: 200,
+                                fit: BoxFit.contain,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "BATANGAS DISTRICT OFFICE REPLACEMENT PLATE",
+                                style: TextStyle(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+
+                              SizedBox(height: 20), // Spacing between text and note
+
+                              // Note Container
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 255, 236, 200),
+                                  border: Border.all(color: const Color.fromARGB(255, 255, 0, 0), width: 2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  "Use the search bar to find a vehicle.",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
 
                   List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
                     return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
@@ -203,25 +293,65 @@ void _fetchRecords() async {
                           child: ConstrainedBox(
                             constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
                             child: DataTable(
-                              sortColumnIndex: _currentSortColumn,
-                              sortAscending: _isAscending,
-                              headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
-                              columns: [
-                                DataColumn(label: Text('Plate Number', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
-                                DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3b82f6)))),
-                              ],
-                              rows: paginatedVehicles.map((vehicle) {
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      Text(vehicle.plateNumber),
-                                      onTap: () => _showVehicleDetails(vehicle),
-                                    ),
-                                    DataCell(Text(vehicle.status.toString().split('.').last)),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
+                                    sortColumnIndex: _currentSortColumn,
+                                    sortAscending: _isAscending,
+                                    headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
+                                    columns: [
+                                      DataColumn(
+                                        label: Text(
+                                          'Plate Number',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 20,  // Increased header font size
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Status',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 20,  // Increased header font size
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    rows: paginatedVehicles.map((vehicle) {
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(
+                                            Text(
+                                              vehicle.plateNumber,
+                                              style: TextStyle(fontSize: 20), // Increased cell text font size
+                                            ),
+                                            onTap: () => _showVehicleDetails(vehicle),
+                                          ),
+                                        DataCell(
+                                          Container(
+                                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: vehicle.status == Status.Released ? const Color.fromARGB(255, 187, 247, 209) : const Color.fromARGB(255, 254, 216, 171),
+                                              borderRadius: BorderRadius.circular(50), // Creates an oval shape
+                                            ),
+                                            child: Text(
+                                              vehicle.status.toString().split('.').last,
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: vehicle.status == Status.Released ? Color.fromARGB(255, 38, 115, 67) : Color.fromARGB(255, 148, 32, 26),
+                                              ),
+                                            ),
+                                          ),
+                                          onTap: () => _showVehicleDetails(vehicle),
+                                        ),
+
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+
                           ),
                         ),
                       ),

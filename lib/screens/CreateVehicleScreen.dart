@@ -17,7 +17,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
-  Status _selectedStatus = Status.Unreleased;
+  Status _selectedStatus = Status.Available;
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {

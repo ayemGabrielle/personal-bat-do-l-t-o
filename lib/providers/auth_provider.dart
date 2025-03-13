@@ -17,37 +17,40 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _user != null;
   String? get accountType => _accountType;
 
-  Future<void> login(String username, String password) async {
-    _isLoading = true;
-    notifyListeners();
+Future<void> login(String username, String password) async {
+  _isLoading = true;
+  notifyListeners();
 
-    bool isOnline = await ConnectivityService().isOnline(); // Check internet
+  bool isOnline = await checkInternetConnection();
+  print("🔵 Real internet check: $isOnline");
 
-    if (isOnline) {
-      // Online login (API request)
+  if (isOnline) {
+    try {
       final user = await ApiService().login(username, password);
       if (user != null) {
         _user = user;
         _accountType = user.accountType;
-    // print("🟡 Received Access Token: ${user.token}"); // Debugging
-
-    await _saveUserToStorage(_user!, user.token, password); // ✅ Pass token correctly
-
-        print("Login successful");
+        await _saveUserToStorage(user, user.token, password);
+        print("✅ Online login successful");
       } else {
-        print("Login failed: Invalid credentials");
+        print("❌ Online login failed");
       }
-    } else {
-      // Offline login (use stored credentials)
+    } catch (e) {
+      print("❌ API request failed: $e");
+      print("🌐 Switching to offline login...");
       bool success = await tryOfflineLogin(username, password);
-      if (!success) {
-        print("Offline login failed: Invalid credentials");
-      }
+      if (!success) print("❌ Offline login failed.");
     }
-
-    _isLoading = false;
-    notifyListeners();
+  } else {
+    print("🌐 No internet detected, trying offline login...");
+    bool success = await tryOfflineLogin(username, password);
+    if (!success) print("❌ Offline login failed: Invalid credentials");
   }
+
+  _isLoading = false;
+  notifyListeners();
+}
+
 
 Future<void> _saveUserToStorage(User user, String token, String password) async {
   final prefs = await SharedPreferences.getInstance();

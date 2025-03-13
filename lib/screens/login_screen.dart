@@ -11,6 +11,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscureText = true;
 
   final Color primaryColor = Color(0xFF3b82f6); // Tailwind Blue-500
 
@@ -86,8 +87,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: "Password",
                           prefixIcon: Icon(Icons.lock, color: primaryColor),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          // Add a suffix icon that toggles password visibility:
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureText ? Icons.visibility_off : Icons.visibility,
+                              color: primaryColor,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureText = !_obscureText;
+                              });
+                            },
+                          ),
                         ),
-                        obscureText: true,
+                        obscureText: _obscureText,
                       ),
                       SizedBox(height: 20),
                       if (_isLoading)
