@@ -37,13 +37,15 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
     );
     _areaController = TextEditingController(text: widget.vehicle.area ?? "");
     _selectedStatus = widget.vehicle.status;
-    _syncPendingEdits();
 
-    // Listen for internet restoration and sync when online
-    Connectivity().onConnectivityChanged.listen((connectivityResult) {
-      if (connectivityResult != ConnectivityResult.none) {
-        _syncPendingEdits();
-      }
+  _syncPendingEdits();
+
+  // Improved listener: runs immediately on reconnection
+  Connectivity().onConnectivityChanged.listen((connectivityResult) async {
+    if (connectivityResult != ConnectivityResult.none) {
+      print("🌐 Internet restored! Attempting to sync...");
+      await _syncPendingEdits();
+    }
     });
   }
 
@@ -81,48 +83,100 @@ void _submitForm() async {
   }
 }
 
-  Future<void> _savePendingEdit(VehicleRecord vehicle) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingEdits =
-        prefs.getStringList('pending_vehicle_edits') ?? [];
-    pendingEdits.add(jsonEncode(vehicle.toJson()));
+  // Future<void> _savePendingEdit(VehicleRecord vehicle) async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   List<String>? pendingEdits =
+  //       prefs.getStringList('pending_vehicle_edits') ?? [];
+  //   pendingEdits.add(jsonEncode(vehicle.toJson()));
 
-    await prefs.setStringList('pending_vehicle_edits', pendingEdits);
-    print("📌 Saved pending edit for vehicle ${vehicle.id}");
+  //   await prefs.setStringList('pending_vehicle_edits', pendingEdits);
+  //   print("📌 Saved pending edit for vehicle ${vehicle.id}");
+  // }
+
+Future<void> _savePendingEdit(VehicleRecord vehicle) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits') ?? [];
+
+  String vehicleJson = jsonEncode(vehicle.toJson());
+  pendingEdits.add(vehicleJson);
+
+  await prefs.setStringList('pending_vehicle_edits', pendingEdits);
+  print("📌 Saved pending edit: $vehicleJson");  // Debugging line
+}
+
+
+
+
+  // Future<void> _syncPendingEdits() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
+
+  //   if (pendingEdits != null && pendingEdits.isNotEmpty) {
+  //     print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+
+  //     var connectivityResult = await Connectivity().checkConnectivity();
+  //     if (connectivityResult != ConnectivityResult.none) {
+  //       List<VehicleRecord> vehicles =
+  //           pendingEdits
+  //               .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+  //               .toList();
+
+  //       for (var vehicle in vehicles) {
+  //         try {
+  //           await ApiService().updateVehicle(vehicle.id, vehicle);
+  //           print("✅ Successfully synced vehicle ${vehicle.id}");
+  //         } catch (e) {
+  //           print("❌ Error syncing vehicle ${vehicle.id}: $e");
+  //         }
+  //       }
+
+  //       await prefs.remove('pending_vehicle_edits');
+  //       print("✅ All pending edits cleared");
+  //     } else {
+  //       print("⚠️ Still offline, cannot sync pending edits.");
+  //     }
+  //   } else {
+  //     print("✅ No pending edits to sync.");
+  //   }
+  // }
+
+
+Future<void> _syncPendingEdits() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
+
+  if (pendingEdits == null || pendingEdits.isEmpty) {
+    print("✅ No pending edits to sync.");
+    return;
   }
 
-  Future<void> _syncPendingEdits() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
+  print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
 
-    if (pendingEdits != null && pendingEdits.isNotEmpty) {
-      print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+  var connectivityResult = await Connectivity().checkConnectivity();
+  if (connectivityResult == ConnectivityResult.none) {
+    print("⚠️ Still offline, cannot sync pending edits.");
+    return;
+  }
 
-      var connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult != ConnectivityResult.none) {
-        List<VehicleRecord> vehicles =
-            pendingEdits
-                .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
-                .toList();
+  List<String> unsyncedEdits = [];
 
-        for (var vehicle in vehicles) {
-          try {
-            await ApiService().updateVehicle(vehicle.id, vehicle);
-            print("✅ Successfully synced vehicle ${vehicle.id}");
-          } catch (e) {
-            print("❌ Error syncing vehicle ${vehicle.id}: $e");
-          }
-        }
-
-        await prefs.remove('pending_vehicle_edits');
-        print("✅ All pending edits cleared");
-      } else {
-        print("⚠️ Still offline, cannot sync pending edits.");
-      }
-    } else {
-      print("✅ No pending edits to sync.");
+  for (String json in pendingEdits) {
+    VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(json));
+    try {
+      await ApiService().updateVehicle(vehicle.id, vehicle);
+      print("✅ Synced vehicle ${vehicle.id}");
+    } catch (e) {
+      print("❌ Failed to sync vehicle ${vehicle.id}: $e");
+      unsyncedEdits.add(json); // Keep failed syncs
     }
   }
+
+  // Only remove successfully synced edits
+  await prefs.setStringList('pending_vehicle_edits', unsyncedEdits);
+  print(unsyncedEdits.isEmpty ? "✅ All edits synced!" : "🔄 Some edits still pending.");
+}
+
+
 
   void _showSuccessDialog({bool isOffline = false}) {
     showDialog(

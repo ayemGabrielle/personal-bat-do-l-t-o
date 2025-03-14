@@ -110,34 +110,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //   }
   // }
 
-void _fetchRecords() async {
-  var connectivityResult = await Connectivity().checkConnectivity();
+  void _fetchRecords() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
 
-  if (connectivityResult == ConnectivityResult.none) {
-    print("⚠️ No internet connection. Loading from local storage...");
-    List<VehicleRecord> localVehicles = await _loadVehiclesFromLocal();
-    setState(() {
-      _vehicles = Future.value(localVehicles);
-    });
-  } else {
-    try {
-      await _syncPendingRecords(); // ✅ Sync offline data when online
-      List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
-      print("✅ Fetched ${vehicles.length} records from API.");
-      setState(() {
-        _vehicles = Future.value(vehicles);
-      });
-      await _saveVehiclesToLocal(vehicles); // ✅ Save for offline use
-    } catch (e) {
-      print("❌ API fetch failed: $e. Loading from local storage...");
+    if (connectivityResult == ConnectivityResult.none) {
+      print("⚠️ No internet connection. Loading from local storage...");
       List<VehicleRecord> localVehicles = await _loadVehiclesFromLocal();
+
+      print("📂 Offline mode: Loaded ${localVehicles.length} vehicles.");
       setState(() {
         _vehicles = Future.value(localVehicles);
       });
+    } else {
+      try {
+        await _syncPendingRecords(); // ✅ Sync offline data
+        List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+        print("✅ Fetched ${vehicles.length} records from API.");
+
+        setState(() {
+          _vehicles = Future.value(vehicles);
+        });
+
+        await _saveVehiclesToLocal(vehicles); // ✅ Save for offline use
+      } catch (e) {
+        print("❌ API fetch failed: $e. Loading from local storage...");
+        List<VehicleRecord> localVehicles = await _loadVehiclesFromLocal();
+
+        print(
+          "📂 Fallback: Loaded ${localVehicles.length} vehicles from storage.",
+        );
+        setState(() {
+          _vehicles = Future.value(localVehicles);
+        });
+      }
     }
   }
-}
-
 
   void _confirmLogout() {
     showDialog(
@@ -744,9 +751,27 @@ void _fetchRecords() async {
   // Save vehicle data to local storage
   Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+
     List<String> vehicleJsonList =
-        vehicles.map((v) => jsonEncode(v.toJson())).toList();
+        vehicles
+            .map((v) {
+              try {
+                return jsonEncode(v.toJson()); // ✅ Ensure valid JSON
+              } catch (e) {
+                print("❌ Error encoding vehicle: $e");
+                return ""; // Skip corrupted data
+              }
+            })
+            .where((v) => v.isNotEmpty)
+            .toList(); // ✅ Remove empty data
+
+    if (vehicleJsonList.isEmpty) {
+      print("⚠️ No valid vehicles to save.");
+      return;
+    }
+
     await prefs.setStringList('vehicles', vehicleJsonList);
+    print("✅ Saved ${vehicleJsonList.length} vehicles to local storage.");
   }
 
   // Load vehicles from local storage
@@ -754,21 +779,23 @@ void _fetchRecords() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? vehicleJsonList = prefs.getStringList('vehicles');
 
-    if (vehicleJsonList != null) {
-      try {
-        List<VehicleRecord> vehicles =
-            vehicleJsonList
-                .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
-                .toList();
-        print("Loaded ${vehicles.length} vehicles from local storage.");
-        return vehicles;
-      } catch (e) {
-        print("Error decoding local storage data: $e");
-        return [];
-      }
-    } else {
-      print("No vehicles found in local storage.");
+    if (vehicleJsonList == null || vehicleJsonList.isEmpty) {
+      print("⚠️ No saved vehicle data found.");
       return [];
     }
+
+    List<VehicleRecord> vehicles = [];
+
+    for (String json in vehicleJsonList) {
+      try {
+        VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(json));
+        vehicles.add(vehicle);
+      } catch (e) {
+        print("❌ Skipping corrupt record: $e");
+      }
+    }
+
+    print("✅ Loaded ${vehicles.length} vehicles from storage.");
+    return vehicles;
   }
 }

@@ -33,28 +33,31 @@ class VehicleRecord {
 
   // Convert JSON to VehicleRecord object
 factory VehicleRecord.fromJson(Map<String, dynamic> json) {
-  DateTime? parsedStatusUpdateDate = json['statusUpdateDate'] != null
-      ? DateTime.tryParse(json['statusUpdateDate']) // No .toLocal()
-      : null;
-
   return VehicleRecord(
-    id: json['id'] ?? "", 
-    section: json['SECTION'],
-    plateNumber: json['PLATENUMBER'],
-    name: json['NAME'],
-    address: json['ADDRESS'],
-    area: json['AREA'],
+    id: json['id']?.toString() ?? "UNKNOWN", // Ensures it is a String
+    section: json['SECTION']?.toString() ?? "N/A", // Ensures it is a String
+    plateNumber: json['PLATENUMBER']?.toString() ?? "N/A", // Ensures it is a String
+    name: json['NAME']?.toString(), // Nullable, so no default
+    address: json['ADDRESS']?.toString(), // Nullable, so no default
+    area: json['AREA']?.toString(), // Nullable, so no default
     status: json['STATUS'] != null
-      ? Status.values.firstWhere(
-          (e) => e.toString().split('.').last == json['STATUS'],
-          orElse: () => Status.Available,
-        )
-      : Status.Available,
-    dateCreated: DateTime.parse(json['dateCreated']).toLocal(),
-    dateUpdated: DateTime.parse(json['dateUpdated']).toLocal(),
-    statusUpdateDate: parsedStatusUpdateDate, 
+        ? Status.values.firstWhere(
+            (e) => e.toString().split('.').last == json['STATUS'],
+            orElse: () => Status.Available,
+          )
+        : Status.Available,
+    dateCreated: json['dateCreated'] != null
+        ? DateTime.tryParse(json['dateCreated'])?.toLocal() ?? DateTime.now()
+        : DateTime.now(),
+    dateUpdated: json['dateUpdated'] != null
+        ? DateTime.tryParse(json['dateUpdated'])?.toLocal() ?? DateTime.now()
+        : DateTime.now(),
+    statusUpdateDate: json['statusUpdateDate'] != null
+        ? DateTime.tryParse(json['statusUpdateDate'])
+        : null,
   );
 }
+
 
 
 
@@ -72,7 +75,10 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
         : Status.Available,
       dateCreated: DateTime.parse(map['dateCreated']),
       dateUpdated: DateTime.parse(map['dateUpdated']),
-      statusUpdateDate: DateTime.parse(map['statusUpdateDate']),
+      statusUpdateDate: map['statusUpdateDate'] != null
+          ? DateTime.tryParse(map['statusUpdateDate'])
+          : null,
+
     );
   }
 
@@ -103,7 +109,7 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
       'SECTION': section,
       'PLATENUMBER': plateNumber,
       'NAME': name,
-      'ADDRESS': address?.isNotEmpty == true ? address : null,
+      'ADDRESS': address,
       'AREA': area,
       'STATUS': status?.toString().split('.').last,
       'statusUpdateDate': statusUpdateDate?.toUtc().toIso8601String(),
