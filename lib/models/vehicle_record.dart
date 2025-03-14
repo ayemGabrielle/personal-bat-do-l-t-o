@@ -44,16 +44,14 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
     name: json['NAME'],
     address: json['ADDRESS'],
     area: json['AREA'],
-    status: Status.values.firstWhere(
-      (e) => e.toString().split('.').last == json['STATUS'],
-      orElse: () => Status.Available,
-    ),
-    dateCreated: DateTime.tryParse(json['dateCreated'] ?? '') ?? DateTime.now(),
-    dateUpdated: DateTime.tryParse(json['dateUpdated'] ?? '') ?? DateTime.now(),
-    syncStatus: SyncStatus.values.firstWhere(
-      (e) => e.toString().split('.').last == json['syncStatus'],
-      orElse: () => SyncStatus.PENDING,
-    ),
+    status: json['STATUS'] != null
+      ? Status.values.firstWhere(
+          (e) => e.toString().split('.').last == json['STATUS'],
+          orElse: () => Status.Available,
+        )
+      : Status.Available,
+    dateCreated: DateTime.parse(json['dateCreated']).toLocal(),
+    dateUpdated: DateTime.parse(json['dateUpdated']).toLocal(),
     statusUpdateDate: parsedStatusUpdateDate, 
   );
 }
@@ -69,10 +67,11 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
       name: map['name'],
       address: map['address'],
       area: map['area'],
-      status: map['status'],
+      status: map['status'] != null
+        ? Status.values.firstWhere((e) => e.toString().split('.').last == map['status'])
+        : Status.Available,
       dateCreated: DateTime.parse(map['dateCreated']),
       dateUpdated: DateTime.parse(map['dateUpdated']),
-      syncStatus: map['syncStatus'],
       statusUpdateDate: DateTime.parse(map['statusUpdateDate']),
     );
   }
@@ -86,7 +85,6 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
       'address': address,
       'area': area,
       'status': status,
-      'syncStatus': syncStatus,
       'statusUpdateDate': statusUpdateDate?.toIso8601String(),
     };
   }
@@ -105,14 +103,10 @@ factory VehicleRecord.fromJson(Map<String, dynamic> json) {
       'SECTION': section,
       'PLATENUMBER': plateNumber,
       'NAME': name,
-      'ADDRESS': address,
+      'ADDRESS': address?.isNotEmpty == true ? address : null,
       'AREA': area,
-      'STATUS': status.toString().split('.').last,
-      'dateCreated': dateCreated.toIso8601String(),
-      'dateUpdated': dateUpdated.toIso8601String(),
-      'syncStatus': syncStatus.toString().split('.').last,
-      'statusUpdateDate': statusUpdateDate?.toIso8601String(), // Store in ISO format
-      'formattedStatusUpdateDate': formattedStatusUpdateDate, // Human-readable format
+      'STATUS': status?.toString().split('.').last,
+      'statusUpdateDate': statusUpdateDate?.toUtc().toIso8601String(),
     };
   }
 

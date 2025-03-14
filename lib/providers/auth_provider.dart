@@ -17,39 +17,89 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _user != null;
   String? get accountType => _accountType;
 
+
+  //login fix with offline first
 Future<void> login(String username, String password) async {
   _isLoading = true;
   notifyListeners();
 
-  bool isOnline = await checkInternetConnection();
-  print("🔵 Real internet check: $isOnline");
+  // Debug Internet Check
+  print("🔍 Checking internet connection...");
+  bool isOnline = await ConnectivityService().isOnline();
+  print("🌐 Internet status: $isOnline");
 
   if (isOnline) {
-    try {
-      final user = await ApiService().login(username, password);
-      if (user != null) {
-        _user = user;
-        _accountType = user.accountType;
-        await _saveUserToStorage(user, user.token, password);
-        print("✅ Online login successful");
-      } else {
-        print("❌ Online login failed");
-      }
-    } catch (e) {
-      print("❌ API request failed: $e");
-      print("🌐 Switching to offline login...");
-      bool success = await tryOfflineLogin(username, password);
-      if (!success) print("❌ Offline login failed.");
+    print("🌍 Internet available. Attempting online login...");
+
+    final user = await ApiService().login(username, password);
+    if (user != null) {
+      _user = user;
+      _accountType = user.accountType;
+      await _saveUserToStorage(_user!, user.token, password);
+      print("✅ Online login successful.");
+      _isLoading = false;
+      notifyListeners();
+      return;
+    } else {
+      print("❌ Online login failed. Checking offline credentials...");
     }
   } else {
-    print("🌐 No internet detected, trying offline login...");
-    bool success = await tryOfflineLogin(username, password);
-    if (!success) print("❌ Offline login failed: Invalid credentials");
+    print("⚠️ No internet detected. Trying offline login...");
+  }
+
+  // Offline Login Fallback
+  bool offlineSuccess = await tryOfflineLogin(username, password);
+  if (offlineSuccess) {
+    print("✅ Logged in offline.");
+  } else {
+    print("❌ No stored credentials found. Offline login failed.");
   }
 
   _isLoading = false;
   notifyListeners();
 }
+
+
+
+
+  // Future<void> login(String username, String password) async {
+  //   _isLoading = true;
+  //   notifyListeners();
+
+  //   bool isOnline = await ConnectivityService().isOnline(); // Check internet
+
+
+  //   if (isOnline) {
+  //     // Online login (API request)
+  //     final user = await ApiService().login(username, password);
+  //     if (user != null) {
+  //       _user = user;
+  //       _accountType = user.accountType;
+  //   // print("🟡 Received Access Token: ${user.token}"); // Debugging
+
+  //   await _saveUserToStorage(_user!, user.token, password); // ✅ Pass token correctly
+
+  //       print("Login successful");
+  //     } else {
+  //       print("Login failed: Invalid credentials");
+  //     }
+  //   } else {
+  //     // Offline login (use stored credentials)
+
+  //     bool success = await tryOfflineLogin(username, password);
+  //     if (!success) {
+  //       print("Offline login failed: Invalid credentials");
+  //     }
+  //   }
+
+  //   _isLoading = false;
+  //   notifyListeners();
+
+  // }
+
+
+
+
 
 
 Future<void> _saveUserToStorage(User user, String token, String password) async {
@@ -94,11 +144,11 @@ Future<void> logout() async {
 
   // Remove only the access token to force re-authentication online
   await prefs.remove('token');
-  
+
   _user = null;
   _accountType = null;
   notifyListeners();
-  
+
   print("🔴 User logged out. Credentials saved for offline login.");
 }
 
@@ -115,17 +165,14 @@ Future<void> logout() async {
     notifyListeners();
   }
 
+// fixed offline login
 Future<bool> tryOfflineLogin(String username, String password) async {
   final prefs = await SharedPreferences.getInstance();
   final storedUserData = prefs.getString('user');
 
-  print("🔵 Retrieved User Data (RAW): $storedUserData");
-
   if (storedUserData != null) {
     try {
       final Map<String, dynamic> storedUser = jsonDecode(storedUserData);
-
-      // Hash the entered password to compare with stored hash
       String hashedInputPassword = sha256.convert(utf8.encode(password)).toString();
 
       if (storedUser['username'] == username && storedUser['password'] == hashedInputPassword) {
@@ -145,6 +192,7 @@ Future<bool> tryOfflineLogin(String username, String password) async {
   }
   return false;
 }
+
 
 
 

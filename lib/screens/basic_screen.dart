@@ -31,7 +31,6 @@ class _BasicScreenState extends State<BasicScreen> {
     _fetchRecords();
   }
 
-
   void _updateSearchQuery(String query) {
     setState(() {
       _searchQuery = query.toUpperCase();
@@ -66,51 +65,47 @@ class _BasicScreenState extends State<BasicScreen> {
   void _logout() {
     Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushReplacementNamed(context, '/login');
-
   }
 
-
-void _fetchRecords() async {
-  try {
-    List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
-    setState(() {
-      _vehicles = Future.value(vehicles);
-    });
-    _saveVehiclesToLocal(vehicles); // Save fetched data
-  } catch (e) {
-    // Load from local storage if API fails
-    setState(() {
-      _vehicles = _loadVehiclesFromLocal();
-    });
+  void _fetchRecords() async {
+    try {
+      List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+      setState(() {
+        _vehicles = Future.value(vehicles);
+      });
+      _saveVehiclesToLocal(vehicles); // Save fetched data
+    } catch (e) {
+      // Load from local storage if API fails
+      setState(() {
+        _vehicles = _loadVehiclesFromLocal();
+      });
+    }
   }
-}
 
-void _confirmLogout() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text("Confirm Logout"),
-        content: Text("Are you sure you want to logout?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), // Close dialog
-            child: Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              _logout(); // Proceed with logout
-            },
-            child: Text("Logout", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Confirm Logout"),
+          content: Text("Are you sure you want to logout?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), // Close dialog
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                _logout(); // Proceed with logout
+              },
+              child: Text("Logout", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showVehicleDetails(VehicleRecord vehicle) {
     showDialog(
@@ -118,7 +113,10 @@ void _confirmLogout() {
       builder: (context) {
         return AlertDialog(
           title: Center(
-            child: Text("Vehicle Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            child: Text(
+              "Vehicle Details",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
           ),
           content: SingleChildScrollView(
             child: SingleChildScrollView(
@@ -131,10 +129,16 @@ void _confirmLogout() {
                   _buildTableRow("Name", vehicle.name ?? 'N/A'),
                   _buildTableRow("Address", vehicle.address ?? 'N/A'),
                   _buildTableRow("Area", vehicle.area ?? 'N/A'),
-                  _buildTableRow("Status", vehicle.status.toString().split('.').last),
+                  _buildTableRow(
+                    "Status",
+                    vehicle.status.toString().split('.').last,
+                  ),
                   _buildTableRow("Created", vehicle.dateCreated.toString()),
                   _buildTableRow("Updated", vehicle.dateUpdated.toString()),
-                  _buildTableRow("Status Updated", vehicle.formattedStatusUpdateDate),
+                  _buildTableRow(
+                    "Status Updated",
+                    vehicle.formattedStatusUpdateDate,
+                  ),
                 ],
               ),
             ),
@@ -151,10 +155,7 @@ void _confirmLogout() {
           padding: const EdgeInsets.all(8.0),
           child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
         ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(value),
-        ),
+        Padding(padding: const EdgeInsets.all(8.0), child: Text(value)),
       ],
     );
   }
@@ -163,241 +164,310 @@ void _confirmLogout() {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-      automaticallyImplyLeading: false,  // This removes the back button
-        title: _isSearching
-      ? TextField(
-          controller: _searchController,
-          autofocus: true,
-          style: TextStyle(color: Colors.white, fontSize: 20),
-          decoration: InputDecoration(
-            hintText: "Search by Plate Number...",
-            hintStyle: TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-            border: InputBorder.none,
-          ),
-          onChanged: _updateSearchQuery,
-        )
-      : Text(
-          'Vehicle Records',
-          style: TextStyle(
-            fontSize: 26, 
-            fontWeight: FontWeight.bold,
-          ),
+        automaticallyImplyLeading: false, // This removes the back button
+        title:
+            _isSearching
+                ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: TextStyle(color: Colors.white, fontSize: 20),
+                  decoration: InputDecoration(
+                    hintText: "Search by Plate Number...",
+                    hintStyle: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                  onChanged: _updateSearchQuery,
+                )
+                : Text(
+                  'Vehicle Records',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+        backgroundColor: Color(0xFF3b82f6),
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
         ),
-          backgroundColor: Color(0xFF3b82f6),
-          titleTextStyle: TextStyle(
-              color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
-          actions: [
-            IconButton(
-              icon: Icon(
-                _isSearching ? Icons.close : Icons.search,
-                color: Colors.white,
-                size: 28,
-              ),
-              onPressed: _toggleSearch,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isSearching ? Icons.close : Icons.search,
+              color: Colors.white,
+              size: 28,
             ),
+            onPressed: _toggleSearch,
+          ),
           IconButton(
             icon: Icon(Icons.logout, color: Colors.red),
             onPressed: _confirmLogout,
           ),
-          ],
-        ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-          Expanded(
-            child: FutureBuilder<List<VehicleRecord>>(
-              future: _vehicles,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
-                } else {
-                  List<VehicleRecord> vehicles = snapshot.data ?? [];
+            Expanded(
+              child: FutureBuilder<List<VehicleRecord>>(
+                future: _vehicles,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  } else {
+                    List<VehicleRecord> vehicles = snapshot.data ?? [];
 
-                  // Hide table until search is performed
-                  if (_searchQuery.isEmpty) {
+                    // Hide table until search is performed
+                    if (_searchQuery.isEmpty) {
                       return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min, // Ensures column shrinks to fit
-                            children: [
-                              // Extra spacing at the top
-                              SizedBox(height: 40), // Adjust as needed
-
-                              // Logo & Text
-                              Image.asset(
-                                "images/app_icon.png",
-                                width: 200,
-                                height: 200,
-                                fit: BoxFit.contain,
+                        child: Column(
+                          mainAxisSize:
+                              MainAxisSize.min, // Ensures column shrinks to fit
+                          children: [
+                            // Extra spacing at the top
+                            SizedBox(height: 40), // Adjust as needed
+                            // Logo & Text
+                            Image.asset(
+                              "images/app_icon.png",
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.contain,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              "BATANGAS DISTRICT OFFICE REPLACEMENT PLATE",
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo,
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                "BATANGAS DISTRICT OFFICE REPLACEMENT PLATE",
+                              textAlign: TextAlign.center,
+                            ),
+
+                            SizedBox(
+                              height: 20,
+                            ), // Spacing between text and note
+                            // Note Container
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 255, 236, 200),
+                                border: Border.all(
+                                  color: const Color.fromARGB(255, 255, 0, 0),
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                "Use the search bar to find a vehicle.",
                                 style: TextStyle(
-                                  fontSize: 25,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.indigo,
+                                  color: Colors.black87,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
 
-                              SizedBox(height: 20), // Spacing between text and note
+                    List<VehicleRecord> filteredVehicles =
+                        vehicles.where((vehicle) {
+                          return vehicle.plateNumber.toUpperCase().startsWith(
+                            _searchQuery,
+                          );
+                        }).toList();
 
-                              // Note Container
-                              Container(
-                                padding: EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color.fromARGB(255, 255, 236, 200),
-                                  border: Border.all(color: const Color.fromARGB(255, 255, 0, 0), width: 2),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  "Use the search bar to find a vehicle.",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                    if (filteredVehicles.isEmpty) {
+                      return Center(child: Text("No results found."));
+                    }
+
+                    int startIndex = _currentPage * _rowsPerPage;
+                    int endIndex = startIndex + _rowsPerPage;
+                    endIndex =
+                        endIndex > filteredVehicles.length
+                            ? filteredVehicles.length
+                            : endIndex;
+                    List<VehicleRecord> paginatedVehicles = filteredVehicles
+                        .sublist(startIndex, endIndex);
+
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: MediaQuery.of(context).size.width,
                               ),
-                            ],
-                          ),
-                        );
-                      }
-
-                  List<VehicleRecord> filteredVehicles = vehicles.where((vehicle) {
-                    return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
-                  }).toList();
-
-                  if (filteredVehicles.isEmpty) {
-                    return Center(child: Text("No results found."));
-                  }
-
-                  int startIndex = _currentPage * _rowsPerPage;
-                  int endIndex = startIndex + _rowsPerPage;
-                  endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
-                  List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
-
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
-                            child: DataTable(
-                                    sortColumnIndex: _currentSortColumn,
-                                    sortAscending: _isAscending,
-                                    headingRowColor: MaterialStateProperty.all(Color(0xFFE8F0FE)),
-                                    columns: [
-                                      DataColumn(
-                                        label: Text(
-                                          'Plate Number',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 20,  // Increased header font size
-                                            color: Colors.black,
-                                          ),
-                                        ),
+                              child: DataTable(
+                                sortColumnIndex: _currentSortColumn,
+                                sortAscending: _isAscending,
+                                headingRowColor: MaterialStateProperty.all(
+                                  Color(0xFFE8F0FE),
+                                ),
+                                columns: [
+                                  DataColumn(
+                                    label: Text(
+                                      'Plate Number',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize:
+                                            20, // Increased header font size
+                                        color: Colors.black,
                                       ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Status',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 20,  // Increased header font size
-                                            color: Colors.black,
-                                          ),
-                                        ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Status',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize:
+                                            20, // Increased header font size
+                                        color: Colors.black,
                                       ),
-                                    ],
-                                    rows: paginatedVehicles.map((vehicle) {
+                                    ),
+                                  ),
+                                ],
+                                rows:
+                                    paginatedVehicles.map((vehicle) {
                                       return DataRow(
                                         cells: [
                                           DataCell(
                                             Text(
                                               vehicle.plateNumber,
-                                              style: TextStyle(fontSize: 20), // Increased cell text font size
-                                            ),
-                                            onTap: () => _showVehicleDetails(vehicle),
-                                          ),
-                                        DataCell(
-                                          Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: vehicle.status == Status.Released ? const Color.fromARGB(255, 187, 247, 209) : const Color.fromARGB(255, 254, 216, 171),
-                                              borderRadius: BorderRadius.circular(50), // Creates an oval shape
-                                            ),
-                                            child: Text(
-                                              vehicle.status.toString().split('.').last,
                                               style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: vehicle.status == Status.Released ? Color.fromARGB(255, 38, 115, 67) : Color.fromARGB(255, 148, 32, 26),
+                                                fontSize: 20,
+                                              ), // Increased cell text font size
+                                            ),
+                                            onTap:
+                                                () => _showVehicleDetails(
+                                                  vehicle,
+                                                ),
+                                          ),
+                                          DataCell(
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    vehicle.status ==
+                                                            Status.Released
+                                                        ? const Color.fromARGB(
+                                                          255,
+                                                          187,
+                                                          247,
+                                                          209,
+                                                        )
+                                                        : const Color.fromARGB(
+                                                          255,
+                                                          254,
+                                                          216,
+                                                          171,
+                                                        ),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      50,
+                                                    ), // Creates an oval shape
+                                              ),
+                                              child: Text(
+                                                vehicle.status
+                                                    .toString()
+                                                    .split('.')
+                                                    .last,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      vehicle.status ==
+                                                              Status.Released
+                                                          ? Color.fromARGB(
+                                                            255,
+                                                            38,
+                                                            115,
+                                                            67,
+                                                          )
+                                                          : Color.fromARGB(
+                                                            255,
+                                                            148,
+                                                            32,
+                                                            26,
+                                                          ),
+                                                ),
                                               ),
                                             ),
+                                            onTap:
+                                                () => _showVehicleDetails(
+                                                  vehicle,
+                                                ),
                                           ),
-                                          onTap: () => _showVehicleDetails(vehicle),
-                                        ),
-
                                         ],
                                       );
                                     }).toList(),
-                                  ),
-
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.chevron_left),
-                            onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                          ),
-                          Text("Page ${_currentPage + 1}"),
-                          IconButton(
-                            icon: Icon(Icons.chevron_right),
-                            onPressed: (_currentPage + 1) * _rowsPerPage < filteredVehicles.length ? _goToNextPage : null,
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                }
-              },
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.chevron_left),
+                              onPressed:
+                                  _currentPage > 0 ? _goToPreviousPage : null,
+                            ),
+                            Text("Page ${_currentPage + 1}"),
+                            IconButton(
+                              icon: Icon(Icons.chevron_right),
+                              onPressed:
+                                  (_currentPage + 1) * _rowsPerPage <
+                                          filteredVehicles.length
+                                      ? _goToNextPage
+                                      : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                },
+              ),
             ),
-          ),
-
           ],
         ),
       ),
     );
   }
 
-        // Save vehicle data to local storage
-    Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String> vehicleJsonList = vehicles.map((v) => jsonEncode(v.toJson())).toList();
-      await prefs.setStringList('vehicles', vehicleJsonList);
-    }
+  // Save vehicle data to local storage
+  Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> vehicleJsonList =
+        vehicles.map((v) => jsonEncode(v.toJson())).toList();
+    await prefs.setStringList('vehicles', vehicleJsonList);
+  }
 
-    // Load vehicles from local storage
-    Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      List<String>? vehicleJsonList = prefs.getStringList('vehicles');
-      
-      if (vehicleJsonList != null) {
-        return vehicleJsonList.map((json) => VehicleRecord.fromJson(jsonDecode(json))).toList();
-      } else {
-        return [];
-      }
+  // Load vehicles from local storage
+  Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? vehicleJsonList = prefs.getStringList('vehicles');
+
+    if (vehicleJsonList != null) {
+      return vehicleJsonList
+          .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+          .toList();
+    } else {
+      return [];
     }
+  }
 }

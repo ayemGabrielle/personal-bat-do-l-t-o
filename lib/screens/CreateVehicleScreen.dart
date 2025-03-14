@@ -18,6 +18,8 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
   Status _selectedStatus = Status.Available;
+  List<VehicleRecord> _vehicleRecords =
+      []; // Define the list to store vehicle records
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
@@ -50,12 +52,19 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
     }
   }
 
-
- Future<void> _savePendingRecord(VehicleRecord vehicle) async {
+  Future<void> _savePendingRecord(VehicleRecord vehicle) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingRecords = prefs.getStringList('pending_vehicles') ?? [];
+    List<String>? pendingRecords =
+        prefs.getStringList('pending_vehicles') ?? [];
     pendingRecords.add(jsonEncode(vehicle.toJson()));
     await prefs.setStringList('pending_vehicles', pendingRecords);
+
+    // ✅ Show new record in the UI immediately
+    setState(() {
+      _vehicleRecords.add(vehicle);
+    });
+
+    print("✅ Vehicle saved offline.");
   }
 
   Future<void> _syncPendingRecords() async {
@@ -65,9 +74,10 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
     if (pendingRecords != null && pendingRecords.isNotEmpty) {
       var connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
-        List<VehicleRecord> vehicles = pendingRecords
-            .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
-            .toList();
+        List<VehicleRecord> vehicles =
+            pendingRecords
+                .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+                .toList();
 
         for (var vehicle in vehicles) {
           try {
@@ -88,9 +98,11 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("Success"),
-          content: Text(isOffline
-              ? "Vehicle saved offline. It will be synced when online."
-              : "Vehicle record has been added successfully."),
+          content: Text(
+            isOffline
+                ? "Vehicle saved offline. It will be synced when online."
+                : "Vehicle record has been added successfully.",
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -106,9 +118,9 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $message")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Error: $message")));
   }
 
   @override
@@ -168,32 +180,50 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
                           ),
                         ),
                         SizedBox(height: 20),
-                        _buildTextField(_plateNumberController, "Plate Number", Icons.directions_car, validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Enter Plate Number";
-                              }
-                              if (value.length != 6) {
-                                return "Plate Number must be exactly 6 characters";
-                              }
-                              return null;
-                            },),
+                        _buildTextField(
+                          _plateNumberController,
+                          "Plate Number",
+                          Icons.directions_car,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Enter Plate Number";
+                            }
+                            if (value.length != 6) {
+                              return "Plate Number must be exactly 6 characters";
+                            }
+                            return null;
+                          },
+                        ),
 
-                        _buildTextField(_sectionController, "Section", Icons.category),
+                        _buildTextField(
+                          _sectionController,
+                          "Section",
+                          Icons.category,
+                        ),
                         _buildTextField(_nameController, "Name", Icons.person),
-                        _buildTextField(_addressController, "Address", Icons.location_on),
+                        _buildTextField(
+                          _addressController,
+                          "Address",
+                          Icons.location_on,
+                        ),
                         _buildTextField(_areaController, "Area", Icons.map),
                         DropdownButtonFormField<Status>(
                           value: _selectedStatus,
                           decoration: InputDecoration(
                             labelText: "Status",
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          items: Status.values.map((Status status) {
-                            return DropdownMenuItem(
-                              value: status,
-                              child: Text(status.toString().split('.').last),
-                            );
-                          }).toList(),
+                          items:
+                              Status.values.map((Status status) {
+                                return DropdownMenuItem(
+                                  value: status,
+                                  child: Text(
+                                    status.toString().split('.').last,
+                                  ),
+                                );
+                              }).toList(),
                           onChanged: (newValue) {
                             setState(() {
                               _selectedStatus = newValue!;
@@ -208,9 +238,17 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
                             style: ElevatedButton.styleFrom(
                               padding: EdgeInsets.symmetric(vertical: 12),
                               backgroundColor: Colors.blueAccent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            child: Text("Save", style: TextStyle(fontSize: 16, color: Colors.white)),
+                            child: Text(
+                              "Save",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -225,7 +263,12 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {String? Function(String?)? validator}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
@@ -235,7 +278,7 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
           prefixIcon: Icon(icon, color: Colors.blueAccent),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
-      validator: validator, // Use the passed validator function
+        validator: validator, // Use the passed validator function
       ),
     );
   }

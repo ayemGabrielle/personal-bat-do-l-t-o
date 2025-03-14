@@ -1,74 +1,71 @@
-  import 'package:flutter/material.dart';
-  import '../core/api_service.dart';
-  import '../models/vehicle_record.dart';
-  import 'package:provider/provider.dart';
-  import '../providers/auth_provider.dart';
-  import './CreateVehicleScreen.dart';
-  import './EditVehicleScreen.dart';
-  import 'package:shared_preferences/shared_preferences.dart';
-  import 'dart:convert';
-  import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
+import '../core/api_service.dart';
+import '../models/vehicle_record.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import './CreateVehicleScreen.dart';
+import './EditVehicleScreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
 
+class _DashboardScreenState extends State<DashboardScreen> {
+  late Future<List<VehicleRecord>> _vehicles;
+  int _currentPage = 0;
+  int _rowsPerPage = 15;
+  String _searchQuery = "";
+  int _currentSortColumn = 0;
+  bool _isAscending = true;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
 
-  class DashboardScreen extends StatefulWidget {
-    @override
-    _DashboardScreenState createState() => _DashboardScreenState();
+  @override
+  void initState() {
+    super.initState();
+    _vehicles = Future.value([]); // Initialize with an empty list
+    _fetchRecords();
   }
 
-  class _DashboardScreenState extends State<DashboardScreen> {
-    late Future<List<VehicleRecord>> _vehicles;
-    int _currentPage = 0;
-    int _rowsPerPage = 15;
-    String _searchQuery = "";
-    int _currentSortColumn = 0;
-    bool _isAscending = true;
-    bool _isSearching = false;
-    final TextEditingController _searchController = TextEditingController();
+  void _updateSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query.toUpperCase();
+      _currentPage = 0;
+    });
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      _vehicles = Future.value([]); // Initialize with an empty list
-      _fetchRecords();
-    }
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchQuery = "";
+        _searchController.clear();
+      }
+    });
+  }
 
-    void _updateSearchQuery(String query) {
-      setState(() {
-        _searchQuery = query.toUpperCase();
-        _currentPage = 0;
-      });
-    }
+  void _goToNextPage() {
+    setState(() {
+      _currentPage++;
+    });
+  }
 
-    void _toggleSearch() {
-      setState(() {
-        _isSearching = !_isSearching;
-        if (!_isSearching) {
-          _searchQuery = "";
-          _searchController.clear();
-        }
-      });
-    }
+  void _goToPreviousPage() {
+    setState(() {
+      if (_currentPage > 0) {
+        _currentPage--;
+      }
+    });
+  }
 
-    void _goToNextPage() {
-      setState(() {
-        _currentPage++;
-      });
-    }
-
-    void _goToPreviousPage() {
-      setState(() {
-        if (_currentPage > 0) {
-          _currentPage--;
-        }
-      });
-    }
-
-    void _logout() {
-      Provider.of<AuthProvider>(context, listen: false).logout();
-      Navigator.pushReplacementNamed(context, '/login');
-
-    }
+  void _logout() {
+    Provider.of<AuthProvider>(context, listen: false).logout();
+    Navigator.pushReplacementNamed(context, '/login');
+  }
 
   void _createNewRecord() async {
     bool? result = await Navigator.push(
@@ -83,11 +80,12 @@
     }
   }
 
-
   void _editRecord(VehicleRecord vehicle) async {
     bool? result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => EditVehicleScreen(vehicle: vehicle)),
+      MaterialPageRoute(
+        builder: (context) => EditVehicleScreen(vehicle: vehicle),
+      ),
     );
 
     if (result == true) {
@@ -112,31 +110,34 @@
   //   }
   // }
 
-  void _fetchRecords() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    
-    if (connectivityResult == ConnectivityResult.none) {
-      print("No internet connection. Loading from local storage...");
+void _fetchRecords() async {
+  var connectivityResult = await Connectivity().checkConnectivity();
+
+  if (connectivityResult == ConnectivityResult.none) {
+    print("⚠️ No internet connection. Loading from local storage...");
+    List<VehicleRecord> localVehicles = await _loadVehiclesFromLocal();
+    setState(() {
+      _vehicles = Future.value(localVehicles);
+    });
+  } else {
+    try {
+      await _syncPendingRecords(); // ✅ Sync offline data when online
+      List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
+      print("✅ Fetched ${vehicles.length} records from API.");
       setState(() {
-        _vehicles = _loadVehiclesFromLocal();
+        _vehicles = Future.value(vehicles);
       });
-    } else {
-      try {
-        await _syncPendingRecords(); // Sync offline data
-        List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
-        print("Fetched ${vehicles.length} records from API.");
-        setState(() {
-          _vehicles = Future.value(vehicles);
-        });
-        _saveVehiclesToLocal(vehicles);
-      } catch (e) {
-        print("API fetch failed: $e. Loading from local storage...");
-        setState(() {
-          _vehicles = _loadVehiclesFromLocal();
-        });
-      }
+      await _saveVehiclesToLocal(vehicles); // ✅ Save for offline use
+    } catch (e) {
+      print("❌ API fetch failed: $e. Loading from local storage...");
+      List<VehicleRecord> localVehicles = await _loadVehiclesFromLocal();
+      setState(() {
+        _vehicles = Future.value(localVehicles);
+      });
     }
   }
+}
+
 
   void _confirmLogout() {
     showDialog(
@@ -163,12 +164,9 @@
     );
   }
 
-
-
-
   Future<void> _syncPendingRecords() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    
+
     // Sync pending deletions
     List<String>? pendingDeletions = prefs.getStringList('pending_deletions');
     if (pendingDeletions != null && pendingDeletions.isNotEmpty) {
@@ -195,7 +193,9 @@
           VehicleRecord record = VehicleRecord.fromJson(jsonDecode(recordJson));
           await ApiService().createVehicle(record);
         } catch (e) {
-          remainingRecords.add(recordJson); // Keep failed records for later sync
+          remainingRecords.add(
+            recordJson,
+          ); // Keep failed records for later sync
         }
       }
 
@@ -203,11 +203,10 @@
     }
   }
 
+  void _deleteRecord(String id) async {
+    // Close the vehicle details dialog first
+    Navigator.pop(context);
 
-
-
-
-  void _deleteRecord(String id) {
     // Show confirmation dialog before deleting
     showDialog(
       context: context,
@@ -215,13 +214,12 @@
         return AlertDialog(
           title: Text("Confirm Delete"),
           content: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0), // Increased spacing
-                      child: Text(
-                        "Are you sure you want to delete this vehicle record?",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-
+            padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+            child: Text(
+              "Are you sure you want to delete this vehicle record?",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -229,35 +227,53 @@
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context); // Close dialog before processing
-                var connectivityResult = await Connectivity().checkConnectivity();
-                
+                Navigator.pop(context); // Close the confirmation dialog
+
+                var connectivityResult =
+                    await Connectivity().checkConnectivity();
+
+                // Remove the vehicle from local storage first
+                List<VehicleRecord> vehicles = await _loadVehiclesFromLocal();
+                vehicles.removeWhere((vehicle) => vehicle.id == id);
+                await _saveVehiclesToLocal(vehicles);
+
+                setState(() {
+                  _vehicles = Future.value(vehicles); // Update UI immediately
+                });
+
                 if (connectivityResult == ConnectivityResult.none) {
-                  // No internet: Save the deletion request locally
-                  SharedPreferences prefs = await SharedPreferences.getInstance();
-                  List<String>? pendingDeletions = prefs.getStringList('pending_deletions') ?? [];
+                  // No internet: Queue deletion for later sync
+                  SharedPreferences prefs =
+                      await SharedPreferences.getInstance();
+                  List<String>? pendingDeletions =
+                      prefs.getStringList('pending_deletions') ?? [];
                   pendingDeletions.add(id);
-                  await prefs.setStringList('pending_deletions', pendingDeletions);
-                  
-                  // Also remove from local storage
-                  List<VehicleRecord> vehicles = await _loadVehiclesFromLocal();
-                  vehicles.removeWhere((vehicle) => vehicle.id == id);
-                  await _saveVehiclesToLocal(vehicles);
-                  
-                  setState(() {
-                    _vehicles = Future.value(vehicles); // Update UI
-                  });
+                  await prefs.setStringList(
+                    'pending_deletions',
+                    pendingDeletions,
+                  );
+
+                  print("Vehicle deletion queued for sync: $id");
                 } else {
-                  // Online: Delete immediately
+                  // Online: Delete from API immediately
                   try {
                     await ApiService().deleteVehicle(id);
-                    List<VehicleRecord> vehicles = await ApiService().fetchVehicles();
-                    await _saveVehiclesToLocal(vehicles); // Update local storage
-                    setState(() {
-                      _vehicles = Future.value(vehicles);
-                    });
+                    print("Vehicle deleted from API: $id");
                   } catch (e) {
-                    print("Failed to delete online: $e");
+                    print(
+                      "Failed to delete online, adding to pending queue: $e",
+                    );
+
+                    // Store the deletion request for later
+                    SharedPreferences prefs =
+                        await SharedPreferences.getInstance();
+                    List<String>? pendingDeletions =
+                        prefs.getStringList('pending_deletions') ?? [];
+                    pendingDeletions.add(id);
+                    await prefs.setStringList(
+                      'pending_deletions',
+                      pendingDeletions,
+                    );
                   }
                 }
               },
@@ -269,161 +285,185 @@
     );
   }
 
-
-    void _showVehicleDetails(VehicleRecord vehicle) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Center(
-              child: Text("Vehicle Details",style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22), // Bigger text
+  void _showVehicleDetails(VehicleRecord vehicle) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Center(
+            child: Text(
+              "Vehicle Details",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ), // Bigger text
             ),
-            ),
-            content: SingleChildScrollView(
-              child: SingleChildScrollView(
-                child: Table(
-                  border: TableBorder.all(color: Colors.grey, width: 1),
-                  columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
-                  children: [
-                    _buildTableRow("Plate Number", vehicle.plateNumber),
-                    _buildTableRow("Section", vehicle.section),
-                    _buildTableRow("Name", vehicle.name ?? 'N/A'),
-                    _buildTableRow("Address", vehicle.address ?? 'N/A'),
-                    _buildTableRow("Area", vehicle.area ?? 'N/A'),
-                    _buildTableRow("Status", vehicle.status.toString().split('.').last),
-                    _buildTableRow("Created", vehicle.dateCreated.toString()),
-                    _buildTableRow("Updated", vehicle.dateUpdated.toString()),
-                    _buildTableRow("Status Updated", vehicle.formattedStatusUpdateDate),
-
-                  ],
-                ),
+          ),
+          content: SingleChildScrollView(
+            child: SingleChildScrollView(
+              child: Table(
+                border: TableBorder.all(color: Colors.grey, width: 1),
+                columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
+                children: [
+                  _buildTableRow("Plate Number", vehicle.plateNumber),
+                  _buildTableRow("Section", vehicle.section),
+                  _buildTableRow("Name", vehicle.name ?? 'N/A'),
+                  _buildTableRow("Address", vehicle.address ?? 'N/A'),
+                  _buildTableRow("Area", vehicle.area ?? 'N/A'),
+                  _buildTableRow(
+                    "Status",
+                    vehicle.status.toString().split('.').last,
+                  ),
+                  _buildTableRow("Created", vehicle.dateCreated.toString()),
+                  _buildTableRow("Updated", vehicle.dateUpdated.toString()),
+                  _buildTableRow(
+                    "Status Updated",
+                    vehicle.formattedStatusUpdateDate,
+                  ),
+                ],
               ),
             ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _editRecord(vehicle),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                textStyle: TextStyle(fontSize: 14),
-                              ),
-                              icon: Icon(Icons.edit, size: 18, color: Colors.white),
-                              label: Text("Edit", style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                          SizedBox(width: 8), // Space between buttons
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _deleteRecord(vehicle.id),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                textStyle: TextStyle(fontSize: 14),
-                              ),
-                              icon: Icon(Icons.delete, size: 18, color: Colors.white),
-                              label: Text("Delete", style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 16), // Space before Close button
-                      Align(
-                        alignment: Alignment.bottomRight,
+                      Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => _editRecord(vehicle),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                            backgroundColor: Colors.blue,
+                            padding: EdgeInsets.symmetric(vertical: 8),
                             textStyle: TextStyle(fontSize: 14),
                           ),
-                          icon: Icon(Icons.close, size: 18, color: Colors.white),
-                          label: Text("Close", style: TextStyle(color: Colors.white)),
+                          icon: Icon(Icons.edit, size: 18, color: Colors.white),
+                          label: Text(
+                            "Edit",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8), // Space between buttons
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _deleteRecord(vehicle.id),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            textStyle: TextStyle(fontSize: 14),
+                          ),
+                          icon: Icon(
+                            Icons.delete,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            "Delete",
+                            style: TextStyle(color: Colors.white),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-
-
-
-
-
-
-          );
-        },
-      );
-    }
-
-    TableRow _buildTableRow(String label, String value) {
-      return TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(value),
-          ),
-        ],
-      );
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage("images/LTO-BG-3.png"),
-            fit: BoxFit.cover,  
-          ),
-        ),
-      child:  Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,  // This removes the back button
-          title: _isSearching
-              ? TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                  decoration: InputDecoration(
-                    hintText: "Search by Plate Number...",
-                    hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
-                    border: InputBorder.none,
-                    
-                  ),
-                  onChanged: _updateSearchQuery,
-                )
-              : Text(
-                      'Vehicle Records',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24 * MediaQuery.of(context).textScaleFactor, // Scalable text
-                        fontWeight: FontWeight.bold,
+                  SizedBox(height: 16), // Space before Close button
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        padding: EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
+                        textStyle: TextStyle(fontSize: 14),
+                      ),
+                      icon: Icon(Icons.close, size: 18, color: Colors.white),
+                      label: Text(
+                        "Close",
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-          backgroundColor: Color(0xFF3b82f6), titleTextStyle: TextStyle(color: Colors.white, fontSize: 24),
+  TableRow _buildTableRow(String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        Padding(padding: const EdgeInsets.all(8.0), child: Text(value)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage("images/LTO-BG-3.png"),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false, // This removes the back button
+          title:
+              _isSearching
+                  ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                    decoration: InputDecoration(
+                      hintText: "Search by Plate Number...",
+                      hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: _updateSearchQuery,
+                  )
+                  : Text(
+                    'Vehicle Records',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize:
+                          24 *
+                          MediaQuery.of(
+                            context,
+                          ).textScaleFactor, // Scalable text
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+          backgroundColor: Color(0xFF3b82f6),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 24),
           actions: [
             IconButton(
-              icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
+              icon: Icon(
+                _isSearching ? Icons.close : Icons.search,
+                color: Colors.white,
+              ),
               onPressed: _toggleSearch,
             ),
             IconButton(
               icon: Icon(Icons.logout, color: Colors.red),
               onPressed: _confirmLogout,
             ),
-          ]
+          ],
         ),
 
         body: Padding(
@@ -431,25 +471,26 @@
           child: Column(
             children: [
               Expanded(
-                  child: FutureBuilder<List<VehicleRecord>>(
-                    future: _vehicles,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(child: Text("Error: ${snapshot.error}"));
-                      } else {
-                        List<VehicleRecord> vehicles = snapshot.data ?? [];
+                child: FutureBuilder<List<VehicleRecord>>(
+                  future: _vehicles,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text("Error: ${snapshot.error}"));
+                    } else {
+                      List<VehicleRecord> vehicles = snapshot.data ?? [];
 
-                        // If no search is performed, display a message
+                      // If no search is performed, display a message
                       if (_searchQuery.isEmpty) {
                         return Center(
                           child: Column(
-                            mainAxisSize: MainAxisSize.min, // Ensures column shrinks to fit
+                            mainAxisSize:
+                                MainAxisSize
+                                    .min, // Ensures column shrinks to fit
                             children: [
                               // Extra spacing at the top
                               SizedBox(height: 40), // Adjust as needed
-
                               // Logo & Text
                               Image.asset(
                                 "images/app_icon.png",
@@ -468,14 +509,23 @@
                                 textAlign: TextAlign.center,
                               ),
 
-                              SizedBox(height: 20), // Spacing between text and note
-
+                              SizedBox(
+                                height: 20,
+                              ), // Spacing between text and note
                               // Note Container
                               Container(
                                 padding: EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color.fromARGB(255, 255, 236, 200),
-                                  border: Border.all(color: const Color.fromARGB(255, 255, 0, 0), width: 2),
+                                  color: const Color.fromARGB(
+                                    255,
+                                    255,
+                                    236,
+                                    200,
+                                  ),
+                                  border: Border.all(
+                                    color: const Color.fromARGB(255, 255, 0, 0),
+                                    width: 2,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
@@ -493,27 +543,32 @@
                         );
                       }
 
+                      // Apply filtering based on search query
+                      // Apply filtering based on search query
+                      List<VehicleRecord> filteredVehicles;
+                      if (_searchQuery.toUpperCase() == "ALL") {
+                        filteredVehicles = vehicles;
+                      } else {
+                        filteredVehicles =
+                            vehicles.where((vehicle) {
+                              return vehicle.plateNumber
+                                  .toUpperCase()
+                                  .startsWith(_searchQuery);
+                            }).toList();
+                      }
 
-                        // Apply filtering based on search query
-                        // Apply filtering based on search query
-                        List<VehicleRecord> filteredVehicles;
-                        if (_searchQuery.toUpperCase() == "ALL") {
-                          filteredVehicles = vehicles;
-                        } else {
-                          filteredVehicles = vehicles.where((vehicle) {
-                            return vehicle.plateNumber.toUpperCase().startsWith(_searchQuery);
-                          }).toList();
-                        }
+                      if (filteredVehicles.isEmpty) {
+                        return Center(child: Text("No results found."));
+                      }
 
-
-                        if (filteredVehicles.isEmpty) {
-                          return Center(child: Text("No results found."));
-                        }
-
-                        int startIndex = _currentPage * _rowsPerPage;
-                        int endIndex = startIndex + _rowsPerPage;
-                        endIndex = endIndex > filteredVehicles.length ? filteredVehicles.length : endIndex;
-                        List<VehicleRecord> paginatedVehicles = filteredVehicles.sublist(startIndex, endIndex);
+                      int startIndex = _currentPage * _rowsPerPage;
+                      int endIndex = startIndex + _rowsPerPage;
+                      endIndex =
+                          endIndex > filteredVehicles.length
+                              ? filteredVehicles.length
+                              : endIndex;
+                      List<VehicleRecord> paginatedVehicles = filteredVehicles
+                          .sublist(startIndex, endIndex);
 
                       return Column(
                         children: [
@@ -521,11 +576,15 @@
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: ConstrainedBox(
-                                constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+                                constraints: BoxConstraints(
+                                  minWidth: MediaQuery.of(context).size.width,
+                                ),
                                 child: DataTable(
                                   sortColumnIndex: _currentSortColumn,
                                   sortAscending: _isAscending,
-                                  headingRowColor: MaterialStateProperty.all(const Color.fromARGB(242, 255, 255, 255)),
+                                  headingRowColor: MaterialStateProperty.all(
+                                    const Color.fromARGB(242, 255, 255, 255),
+                                  ),
                                   columns: [
                                     DataColumn(
                                       label: Text(
@@ -533,7 +592,8 @@
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 18, // Bigger text
-                                          color: Colors.black, // Darker contrast
+                                          color:
+                                              Colors.black, // Darker contrast
                                         ),
                                       ),
                                     ),
@@ -544,65 +604,125 @@
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 18, // Bigger text
-                                          color: Colors.black, // Darker contrast
+                                          color:
+                                              Colors.black, // Darker contrast
                                         ),
                                       ),
                                     ),
                                   ],
-                                  rows: paginatedVehicles.map((vehicle) {
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            vehicle.plateNumber,
-                                            style: TextStyle(fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold), // Adjust font size here
-                                          ),
-                                          onTap: () => _showVehicleDetails(vehicle),
-                                        ),
-                                        DataCell(
-                                          Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: vehicle.status == Status.Released ? const Color.fromARGB(255, 187, 247, 209) : const Color.fromARGB(255, 254, 216, 171),
-                                              borderRadius: BorderRadius.circular(50), // Creates an oval shape
-                                            ),
-                                            child: Text(
-                                              vehicle.status.toString().split('.').last,
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: vehicle.status == Status.Released ? Color.fromARGB(255, 38, 115, 67) : Color.fromARGB(255, 148, 32, 26)
-,
+                                  rows:
+                                      paginatedVehicles.map((vehicle) {
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                vehicle.plateNumber,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  color: Colors.black,
+                                                  fontWeight: FontWeight.bold,
+                                                ), // Adjust font size here
                                               ),
+                                              onTap:
+                                                  () => _showVehicleDetails(
+                                                    vehicle,
+                                                  ),
                                             ),
-                                          ),
-                                          onTap: () => _showVehicleDetails(vehicle),
-                                        ),
-
-                                      ],
-                                    );
-                                  }).toList(),
+                                            DataCell(
+                                              Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      vehicle.status ==
+                                                              Status.Released
+                                                          ? const Color.fromARGB(
+                                                            255,
+                                                            187,
+                                                            247,
+                                                            209,
+                                                          )
+                                                          : const Color.fromARGB(
+                                                            255,
+                                                            254,
+                                                            216,
+                                                            171,
+                                                          ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        50,
+                                                      ), // Creates an oval shape
+                                                ),
+                                                child: Text(
+                                                  vehicle.status
+                                                      .toString()
+                                                      .split('.')
+                                                      .last,
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        vehicle.status ==
+                                                                Status.Released
+                                                            ? Color.fromARGB(
+                                                              255,
+                                                              38,
+                                                              115,
+                                                              67,
+                                                            )
+                                                            : Color.fromARGB(
+                                                              255,
+                                                              148,
+                                                              32,
+                                                              26,
+                                                            ),
+                                                  ),
+                                                ),
+                                              ),
+                                              onTap:
+                                                  () => _showVehicleDetails(
+                                                    vehicle,
+                                                  ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
                                 ),
                               ),
                             ),
                           ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.chevron_left, color: Colors.blue), // Change icon color here
-                                  onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                                ),
-                                Text(
-                                  "Page ${_currentPage + 1}",
-                                  style: TextStyle(color: Colors.blue), // Change text color here
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.chevron_right, color: Colors.blue), // Change icon color here
-                                  onPressed: (_currentPage + 1) * _rowsPerPage < filteredVehicles.length ? _goToNextPage : null,
-                                ),
-                              ],
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.chevron_left,
+                                  color: Colors.blue,
+                                ), // Change icon color here
+                                onPressed:
+                                    _currentPage > 0 ? _goToPreviousPage : null,
+                              ),
+                              Text(
+                                "Page ${_currentPage + 1}",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                ), // Change text color here
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.blue,
+                                ), // Change icon color here
+                                onPressed:
+                                    (_currentPage + 1) * _rowsPerPage <
+                                            filteredVehicles.length
+                                        ? _goToNextPage
+                                        : null,
+                              ),
+                            ],
+                          ),
                         ],
                       );
                     }
@@ -617,25 +737,29 @@
           backgroundColor: Colors.blue,
           child: Icon(Icons.add, color: Colors.white),
         ),
-      )
-      );
-    }
+      ),
+    );
+  }
 
-        // Save vehicle data to local storage
-      Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        List<String> vehicleJsonList = vehicles.map((v) => jsonEncode(v.toJson())).toList();
-        await prefs.setStringList('vehicles', vehicleJsonList);
-      }
+  // Save vehicle data to local storage
+  Future<void> _saveVehiclesToLocal(List<VehicleRecord> vehicles) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> vehicleJsonList =
+        vehicles.map((v) => jsonEncode(v.toJson())).toList();
+    await prefs.setStringList('vehicles', vehicleJsonList);
+  }
 
-      // Load vehicles from local storage
+  // Load vehicles from local storage
   Future<List<VehicleRecord>> _loadVehiclesFromLocal() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? vehicleJsonList = prefs.getStringList('vehicles');
 
     if (vehicleJsonList != null) {
       try {
-        List<VehicleRecord> vehicles = vehicleJsonList.map((json) => VehicleRecord.fromJson(jsonDecode(json))).toList();
+        List<VehicleRecord> vehicles =
+            vehicleJsonList
+                .map((json) => VehicleRecord.fromJson(jsonDecode(json)))
+                .toList();
         print("Loaded ${vehicles.length} vehicles from local storage.");
         return vehicles;
       } catch (e) {
@@ -647,6 +771,4 @@
       return [];
     }
   }
-
-
-  }
+}
