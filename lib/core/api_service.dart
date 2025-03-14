@@ -17,34 +17,81 @@ ApiService() {
   });
 }
 
+  // Add the _isOnline method here
+  Future<bool> _isOnline() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+// Future<void> _syncPendingChanges() async {
+//   if (!await _isOnline()) return;
+
+//   final prefs = await SharedPreferences.getInstance();
+//   List<String> pendingUpdates = prefs.getStringList("pending_updates") ?? [];
+
+//   if (pendingUpdates.isEmpty) return;
+
+//   for (int i = pendingUpdates.length - 1; i >= 0; i--) {
+//     Map<String, dynamic> updateData = jsonDecode(pendingUpdates[i]);
+//     String id = updateData["id"];
+//     VehicleRecord vehicle = VehicleRecord.fromJson(updateData["vehicle"]);
+
+//     try {
+//       await updateVehicleOnline(id, vehicle); // Sync with server
+//       pendingUpdates.removeAt(i); // Remove successfully synced item
+//       await prefs.setStringList("pending_updates", pendingUpdates);
+//       print("Synced update for vehicle: $id");
+//     } catch (e) {
+//       print("Failed to sync update for vehicle $id: $e");
+//     }
+//   }
+// }
+
+//   Future<bool> _isOnline() async {
+//     var connectivityResult = await Connectivity().checkConnectivity();
+//     return connectivityResult != ConnectivityResult.none;
+//   }
+
 Future<void> _syncPendingChanges() async {
   if (!await _isOnline()) return;
 
   final prefs = await SharedPreferences.getInstance();
+  List<String> pendingCreates = prefs.getStringList("pending_creates") ?? [];
   List<String> pendingUpdates = prefs.getStringList("pending_updates") ?? [];
 
-  if (pendingUpdates.isEmpty) return;
+  // Sync create vehicle records
+  for (String item in pendingCreates.toList()) {
+    VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(item));
+    try {
+      await createVehicle(vehicle, offline: false);  // Syncing create
+      pendingCreates.remove(item); // Remove after success
+      await prefs.setStringList("pending_creates", pendingCreates);
+      print("Synced create for vehicle: ${vehicle.id}");
+    } catch (e) {
+      print("Failed to sync create vehicle ${vehicle.id}: $e");
+    }
+  }
 
-  for (int i = pendingUpdates.length - 1; i >= 0; i--) {
-    Map<String, dynamic> updateData = jsonDecode(pendingUpdates[i]);
+  // Sync updates
+  for (String item in pendingUpdates.toList()) {
+    Map<String, dynamic> updateData = jsonDecode(item);
     String id = updateData["id"];
     VehicleRecord vehicle = VehicleRecord.fromJson(updateData["vehicle"]);
 
     try {
-      await updateVehicleOnline(id, vehicle); // Sync with server
-      pendingUpdates.removeAt(i); // Remove successfully synced item
+      await updateVehicleOnline(id, vehicle);  // Syncing updates
+      pendingUpdates.remove(item); // Remove after success
       await prefs.setStringList("pending_updates", pendingUpdates);
       print("Synced update for vehicle: $id");
     } catch (e) {
       print("Failed to sync update for vehicle $id: $e");
     }
   }
+
+  // Clear if necessary
+  await prefs.remove("pending_creates");
+  await prefs.remove("pending_updates");
 }
 
-  Future<bool> _isOnline() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
-  }
 
 // DO NOT REMOVE THISSSSSSSSSSSs
 // Future<void> _savePendingChanges(String key, Map<String, dynamic> data) async {
@@ -186,6 +233,29 @@ Future<void> updateVehicleOnline(String id, VehicleRecord vehicle) async {
 
     // Create a new vehicle record
 // Create a new vehicle record
+// Future<void> createVehicle(VehicleRecord vehicle, {bool offline = true}) async {
+//   if (await _isOnline()) {
+//     try {
+//       final response = await http.post(
+//         Uri.parse('$baseUrl/vehicle-records'),
+//         headers: {"Content-Type": "application/json"},
+//         body: jsonEncode(vehicle.toJson()),
+//       );
+
+//       if (response.statusCode != 201) {
+//         throw Exception("Failed to create vehicle");
+//       }
+//     } catch (e) {
+//       // If there’s an error (like internet disconnecting mid-request), save offline
+//       if (offline) {
+//         await _savePendingChanges("pending_creates", vehicle.toJson());
+//       }
+//     }
+//   } else if (offline) {
+//     await _savePendingChanges("pending_creates", vehicle.toJson()); 
+//   }
+// }
+
 Future<void> createVehicle(VehicleRecord vehicle, {bool offline = true}) async {
   if (await _isOnline()) {
     try {
@@ -196,19 +266,32 @@ Future<void> createVehicle(VehicleRecord vehicle, {bool offline = true}) async {
       );
 
       if (response.statusCode != 201) {
-        throw Exception("Failed to create vehicle");
+        throw Exception("❌ Failed to create vehicle online");
+      } else {
+        print("✅ Vehicle created online: ${vehicle.id}");
       }
     } catch (e) {
-      // If there’s an error (like internet disconnecting mid-request), save offline
-      if (offline) {
-        await _savePendingChanges("pending_creates", vehicle.toJson());
-      }
+      print("⚠️ Error creating vehicle online: $e");
+      if (offline) await _storeCreateLocally(vehicle);
     }
-  } else if (offline) {
-    await _savePendingChanges("pending_creates", vehicle.toJson()); 
+  } else {
+    await _storeCreateLocally(vehicle);
   }
 }
 
+
+Future<void> _storeCreateLocally(VehicleRecord vehicle) async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> pendingCreates = prefs.getStringList("pending_creates") ?? [];
+
+  // Generate a temporary local ID if needed
+  vehicle.id ??= DateTime.now().millisecondsSinceEpoch.toString();
+
+  pendingCreates.add(jsonEncode(vehicle.toJson()));
+  await prefs.setStringList("pending_creates", pendingCreates);
+
+  print("Vehicle stored offline for later syncing: ${vehicle.id}");
+}
 
 
   // 🔄 Update vehicle record (PATCH)

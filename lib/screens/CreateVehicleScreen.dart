@@ -52,20 +52,25 @@ class _CreateVehicleScreenState extends State<CreateVehicleScreen> {
     }
   }
 
-  Future<void> _savePendingRecord(VehicleRecord vehicle) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingRecords =
-        prefs.getStringList('pending_vehicles') ?? [];
-    pendingRecords.add(jsonEncode(vehicle.toJson()));
-    await prefs.setStringList('pending_vehicles', pendingRecords);
+Future<void> _savePendingRecord(VehicleRecord vehicle) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingRecords = prefs.getStringList('pending_vehicles') ?? [];
 
-    // ✅ Show new record in the UI immediately
-    setState(() {
-      _vehicleRecords.add(vehicle);
-    });
-
-    print("✅ Vehicle saved offline.");
+  // Assign a temporary ID (if empty) for tracking
+  if (vehicle.id == null || vehicle.id!.isEmpty) {
+    vehicle.id = "local_${DateTime.now().millisecondsSinceEpoch}";
   }
+
+  pendingRecords.add(jsonEncode(vehicle.toJson()));
+  await prefs.setStringList('pending_vehicles', pendingRecords);
+
+  // ✅ Show new record in the UI immediately
+  setState(() {
+    _vehicleRecords.add(vehicle);
+  });
+
+  print("✅ Vehicle saved offline with temp ID: ${vehicle.id}");
+}
 
   Future<void> _syncPendingRecords() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
