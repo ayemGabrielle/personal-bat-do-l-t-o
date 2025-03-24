@@ -189,15 +189,6 @@ Future<void> _savePendingRecord(VehicleRecord vehicle) async {
                           _plateNumberController,
                           "Plate Number",
                           Icons.directions_car,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "Enter Plate Number";
-                            }
-                            if (value.length != 6) {
-                              return "Plate Number must be exactly 6 characters";
-                            }
-                            return null;
-                          },
                         ),
 
                         _buildTextField(

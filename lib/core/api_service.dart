@@ -8,6 +8,7 @@ import 'package:jwt_decoder/jwt_decoder.dart'; // Add this line to import the jw
 
 class ApiService {
   static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
+    // static const String baseUrl = "http://localhost:3000"; // Change to your API URL
 ApiService() {
   Connectivity().onConnectivityChanged.listen((result) {
     if (result != ConnectivityResult.none) {
@@ -132,16 +133,26 @@ Future<void> _saveOffline(String key, VehicleRecord vehicle) async {
   await prefs.setStringList(key, offlineData);
 }
 
-  // Fetch all vehicle records
-  Future<List<VehicleRecord>> fetchVehicles() async {
-    final response = await http.get(Uri.parse('$baseUrl/vehicle-records'));
-    if (response.statusCode == 200) {
-      List jsonResponse = json.decode(response.body);
-      return jsonResponse.map((data) => VehicleRecord.fromJson(data)).toList();
-    } else {
-      throw Exception("Failed to load vehicle records");
-    }
+Future<List<VehicleRecord>> fetchVehicles() async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/vehicle-records'),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  if (response.statusCode == 200) {
+    List jsonResponse = json.decode(response.body);
+    return jsonResponse.map((data) => VehicleRecord.fromJson(data)).toList();
+  } else {
+    throw Exception("Failed to load vehicle records");
   }
+}
+
 
 
   // Define the _syncPendingChanges method DO NOT REMOVE THISSSSS
@@ -209,15 +220,23 @@ Future<void> _saveOffline(String key, VehicleRecord vehicle) async {
 
 
 Future<void> updateVehicleOnline(String id, VehicleRecord vehicle) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
   final response = await http.patch(
     Uri.parse('$baseUrl/vehicle-records/$id'),
-    headers: {"Content-Type": "application/json"},
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
     body: jsonEncode(vehicle.toJson()),
   );
+
   if (response.statusCode != 200) {
     throw Exception("Failed to update vehicle online");
   }
 }
+
 
 
 
@@ -257,27 +276,34 @@ Future<void> updateVehicleOnline(String id, VehicleRecord vehicle) async {
 // }
 
 Future<void> createVehicle(VehicleRecord vehicle, {bool offline = true}) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
   if (await _isOnline()) {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/vehicle-records'),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
         body: jsonEncode(vehicle.toJson()),
       );
 
       if (response.statusCode != 201) {
-        throw Exception("❌ Failed to create vehicle online");
+        throw Exception("Failed to create vehicle online");
       } else {
-        print("✅ Vehicle created online: ${vehicle.id}");
+        print("Vehicle created online: ${vehicle.id}");
       }
     } catch (e) {
-      print("⚠️ Error creating vehicle online: $e");
+      print("Error creating vehicle online: $e");
       if (offline) await _storeCreateLocally(vehicle);
     }
   } else {
     await _storeCreateLocally(vehicle);
   }
 }
+
 
 
 Future<void> _storeCreateLocally(VehicleRecord vehicle) async {
@@ -311,15 +337,28 @@ Future<void> _storeCreateLocally(VehicleRecord vehicle) async {
   // }
 
 Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  if (token == null) {
+    throw Exception("Authentication token not found");
+  }
+
   if (await _isOnline()) {
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/vehicle-records/$id'),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
         body: jsonEncode(vehicle.toJson()),
       );
+
       if (response.statusCode != 200) {
         throw Exception("Failed to update vehicle");
+      } else {
+        print("Vehicle updated successfully: $id");
       }
     } catch (e) {
       print("Error updating vehicle online: $e");
@@ -329,6 +368,7 @@ Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
     await _storeUpdateLocally(id, vehicle);
   }
 }
+
 
 Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
   final prefs = await SharedPreferences.getInstance();
@@ -349,14 +389,30 @@ Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
 
 
 
-  // Delete a vehicle record by ID
-  Future<void> deleteVehicle(String id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/vehicle-records/$id'));
+// Delete a vehicle record by ID with Authorization Token
+Future<void> deleteVehicle(String id) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
 
-    if (response.statusCode != 200) {
-      throw Exception("Failed to delete vehicle record");
-    }
+  if (token == null) {
+    throw Exception("Authentication token not found");
   }
+
+  final response = await http.delete(
+    Uri.parse('$baseUrl/vehicle-records/$id'),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception("Failed to delete vehicle record");
+  } else {
+    print("Vehicle deleted successfully: $id");
+  }
+}
+
 
   // Sync offline data
   Future<void> syncOfflineVehicles(List<VehicleRecord> vehicles) async {
@@ -371,36 +427,35 @@ Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
     }
   }
 
-  Future<User?> login(String username, String password) async {
-    print("Attempting login for username: $username"); // Logging attempt
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({'username': username, 'password': password}),
-    );
+Future<User?> login(String username, String password) async {
+  final response = await http.post(
+    Uri.parse('$baseUrl/auth/login'),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({'username': username, 'password': password}),
+  );
 
-    print("Response Status Code: ${response.statusCode}"); // Log response code
-    // print("Response Body: ${response.body}"); // Log response body
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    final String token = data['access_token'];
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final String token = data['access_token'];
+    // Store token in SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("jwt_token", token);
 
-      // Decode JWT to extract user details
-      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-      // print("Decoded JWT: $decodedToken"); // Log decoded JWT
+    // Decode JWT
+    Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
 
-      return User.fromJson({
-        'id': decodedToken['sub'], // Extract user ID
-        'username': decodedToken['username'], // Extract username
-        'token': token, // Store token
-        'accountType': decodedToken['accountType'], // Extract account type
-      });
-    } else {
-      print("Login failed: ${response.body}"); // Log failure message
-      return null; // Handle invalid login
-    }
+    return User.fromJson({
+      'id': decodedToken['sub'],
+      'username': decodedToken['username'],
+      'token': token,
+      'accountType': decodedToken['accountType'],
+    });
+  } else {
+    return null;
   }
+}
+
 
     // Fetch logged-in user info
 Future<User?> getUserInfo(String token) async {
