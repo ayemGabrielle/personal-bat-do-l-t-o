@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../core/api_service.dart';
-import '../models/vehicle_record.dart';
+import '../../core/api_service.dart';
+import '../../models/vehicle_record.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import './CreateVehicleScreen.dart';
-import './EditVehicleScreen.dart';
+import '../../providers/auth_provider.dart';
+import 'CreateVehicleScreen.dart';
+import 'EditVehicleScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';

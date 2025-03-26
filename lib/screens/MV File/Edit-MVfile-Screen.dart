@@ -1,93 +1,106 @@
-import 'package:flutter/material.dart';
-import '../core/api_service.dart';
-import '../models/mvfile.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-class CreateMVFileScreen extends StatefulWidget {
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:lto_app/models/mvfile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/api_service.dart';
+
+class EditMVFileScreen extends StatefulWidget {
+  final MVFile mvFile;
+
+  EditMVFileScreen({required this.mvFile});
+
   @override
-  _CreateMVFileScreenState createState() => _CreateMVFileScreenState();
+  _EditMVFileScreenState createState() => _EditMVFileScreenState();
 }
 
-class _CreateMVFileScreenState extends State<CreateMVFileScreen> {
+class _EditMVFileScreenState extends State<EditMVFileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _mvFileNumberController = TextEditingController();
-  final TextEditingController _plateNumberController = TextEditingController();
-  final TextEditingController _sectionController = TextEditingController();
-  List<MVFile> _mvFiles = []; // List to store MVFile records
+  late TextEditingController _sectionController;
+  late TextEditingController _mvFileNumberController;
+  late TextEditingController _plateNumberController;
 
-void _submitForm() async {
-  if (_formKey.currentState!.validate()) {
-    MVFile newMVFile = MVFile(
-      id: "",
-      mvFileNumber: _mvFileNumberController.text.trim(),
-      plateNumber: _plateNumberController.text.trim(),
-      section: _sectionController.text.trim(),
-      dateCreated: DateTime.now(),
-      dateUpdated: DateTime.now(),
-    ); // ❌ Remove id field entirely
+  @override
+  void initState() {
+    super.initState();
+    _sectionController = TextEditingController(text: widget.mvFile.section);
+    _mvFileNumberController = TextEditingController(text: widget.mvFile.mvFileNumber);
+    _plateNumberController = TextEditingController(text: widget.mvFile.plateNumber);
+    _syncPendingEdits();
 
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult != ConnectivityResult.none) {
-      // Device is online - send to API
-      try {
-        await ApiService().createMvFile(newMVFile);
-        _showSuccessDialog();
-      } catch (error) {
-        _showErrorSnackbar(error.toString());
+    Connectivity().onConnectivityChanged.listen((connectivityResult) async {
+      if (connectivityResult != ConnectivityResult.none) {
+        print("🌐 Internet restored! Attempting to sync...");
+        await _syncPendingEdits();
       }
-    } else {
-      // Device is offline - save to local storage
-      await _savePendingRecord(newMVFile);
-      _showSuccessDialog(isOffline: true);
-    }
-  }
-}
-
-
-  Future<void> _savePendingRecord(MVFile mvFile) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingRecords = prefs.getStringList('pending_mvfiles') ?? [];
-
-    // Assign a temporary ID (if empty) for tracking
-    if (mvFile.id.isEmpty) {
-      mvFile.id = "local_${DateTime.now().millisecondsSinceEpoch}";
-    }
-
-    pendingRecords.add(jsonEncode(mvFile.toJson()));
-    await prefs.setStringList('pending_mvfiles', pendingRecords);
-
-    // ✅ Show new record in the UI immediately
-    setState(() {
-      _mvFiles.add(mvFile);
     });
-
-    print("✅ MV File saved offline with temp ID: ${mvFile.id}");
   }
 
-  Future<void> _syncPendingRecords() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingRecords = prefs.getStringList('pending_mvfiles');
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      MVFile updatedMVFile = MVFile(
+        id: widget.mvFile.id,
+        section: _sectionController.text.trim(),
+        mvFileNumber: _mvFileNumberController.text.trim(),
+        plateNumber: _plateNumberController.text.trim(),
+      );
 
-    if (pendingRecords != null && pendingRecords.isNotEmpty) {
       var connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
-        List<MVFile> mvFiles = pendingRecords
-            .map((json) => MVFile.fromJson(jsonDecode(json)))
-            .toList();
-
-        for (var mvFile in mvFiles) {
-          try {
-            await ApiService().createMvFile(mvFile);
-          } catch (e) {
-            print("Error syncing record: $e");
-          }
+        try {
+          await ApiService().updateMVFile(widget.mvFile.id, updatedMVFile);
+          _showSuccessDialog();
+        } catch (error) {
+          _showErrorSnackbar(error.toString());
         }
-
-        await prefs.remove('pending_mvfiles'); // Clear after syncing
+      } else {
+        await _savePendingEdit(updatedMVFile);
+        _showSuccessDialog(isOffline: true);
       }
     }
+  }
+
+  Future<void> _savePendingEdit(MVFile mvFile) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingEdits = prefs.getStringList('pending_mvfile_edits') ?? [];
+    pendingEdits.add(jsonEncode(mvFile.toJson()));
+    await prefs.setStringList('pending_mvfile_edits', pendingEdits);
+    print("📌 Saved pending edit for MVFile ${mvFile.id}");
+  }
+
+  Future<void> _syncPendingEdits() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingEdits = prefs.getStringList('pending_mvfile_edits');
+
+    if (pendingEdits == null || pendingEdits.isEmpty) {
+      print("✅ No pending edits to sync.");
+      return;
+    }
+
+    print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      print("⚠️ Still offline, cannot sync pending edits.");
+      return;
+    }
+
+    List<String> unsyncedEdits = [];
+
+    for (String json in pendingEdits) {
+      MVFile mvFile = MVFile.fromJson(jsonDecode(json));
+      try {
+        await ApiService().updateMVFile(mvFile.id, mvFile);
+        print("✅ Synced MVFile ${mvFile.id}");
+      } catch (e) {
+        print("❌ Failed to sync MVFile ${mvFile.id}: $e");
+        unsyncedEdits.add(json);
+      }
+    }
+
+    await prefs.setStringList('pending_mvfile_edits', unsyncedEdits);
+    print(unsyncedEdits.isEmpty ? "✅ All edits synced!" : "🔄 Some edits still pending.");
   }
 
   void _showSuccessDialog({bool isOffline = false}) {
@@ -98,14 +111,14 @@ void _submitForm() async {
           title: Text("Success"),
           content: Text(
             isOffline
-                ? "MV File saved offline. It will be synced when online."
-                : "MV File record has been added successfully.",
+                ? "MV File edit saved offline. It will be synced when online."
+                : "MV File record has been updated successfully.",
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close the dialog
-                Navigator.pop(context, true); // Return success
+                Navigator.pop(context);
+                Navigator.pop(context, true);
               },
               child: Text("OK"),
             ),
@@ -116,15 +129,9 @@ void _submitForm() async {
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("Error: $message")));
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _syncPendingRecords(); // Try syncing pending records when screen loads
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $message")),
+    );
   }
 
   @override
@@ -132,7 +139,7 @@ void _submitForm() async {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Add MV File",
+          "Edit MV File",
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -170,7 +177,7 @@ void _submitForm() async {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          "Register New MV File",
+                          "Edit MV File",
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -206,7 +213,7 @@ void _submitForm() async {
                               ),
                             ),
                             child: Text(
-                              "Save",
+                              "Update",
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.white,
@@ -241,7 +248,7 @@ void _submitForm() async {
           prefixIcon: Icon(icon, color: Colors.blueAccent),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        validator: validator, // Use the passed validator function
+        validator: validator,
       ),
     );
   }

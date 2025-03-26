@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:lto_app/screens/mvf-dashboard.dart';
+import 'package:lto_app/screens/MV%20File/mvf-dashboard.dart';
 import 'package:provider/provider.dart';
-import 'screens/basic_screen.dart';
-import 'screens/limited_screen.dart';
+import 'screens/Vehicle Records/basic_screen.dart';
+import 'screens/Vehicle Records/limited_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/Vehicle Records/dashboard_screen.dart';
 import 'providers/auth_provider.dart';
 
 void main() {

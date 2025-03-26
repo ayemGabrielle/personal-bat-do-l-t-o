@@ -1,12 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import '../core/api_service.dart';
-import '../models/vehicle_record.dart';
+import '../../core/api_service.dart';
+import '../../models/vehicle_record.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import './CreateVehicleScreen.dart'; // Add this import
-import './EditVehicleScreen.dart'; // Add this import
+import '../../providers/auth_provider.dart';
+import 'CreateVehicleScreen.dart'; // Add this import
+import 'EditVehicleScreen.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart'; // Add this import
 
 class LimitedScreen extends StatefulWidget {
