@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'screens/MV File/mvf-dashboard.dart';
 import 'screens/Vehicle Records/dashboard_screen.dart';
 import 'screens/Vehicle Records/basic_screen.dart';
 import 'screens/Vehicle Records/limited_screen.dart';
@@ -36,6 +37,8 @@ class AuthGuard extends StatelessWidget {
         return LimitedScreen();
       case "basic":
         return BasicScreen();
+      case "mvfileadmin":
+        return MVFileDashboardScreen();
       default:
         return LoginScreen();
     }

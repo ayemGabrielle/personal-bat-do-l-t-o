@@ -13,6 +13,8 @@ class AuthService {
       Navigator.pushReplacementNamed(context, '/limited-dashboard');
     } else if (accountType == 'basic') {
       Navigator.pushReplacementNamed(context, '/basic-dashboard');
+    } else if (accountType == 'mvfileadmin') {
+      Navigator.pushReplacementNamed(context, '/mvf-dashboard');
     } else {
       // If the role is not valid, go to login page
       Navigator.pushReplacementNamed(context, '/login');
