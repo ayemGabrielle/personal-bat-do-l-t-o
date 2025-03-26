@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lto_app/screens/mvf-dashboard.dart';
 import 'package:provider/provider.dart';
 import 'screens/basic_screen.dart';
 import 'screens/limited_screen.dart';
@@ -38,6 +39,8 @@ class MyApp extends StatelessWidget {
                 return _guardedRoute(context, authProvider, 'basic', BasicScreen());
               case '/limited-dashboard':
                 return _guardedRoute(context, authProvider, 'limited', LimitedScreen());
+              case '/mvf-dashboard':
+                return _guardedRoute(context, authProvider, 'mvfileadmin', MVFileDashboardScreen());
               default:
                 return MaterialPageRoute(builder: (context) => LoginScreen());
             }

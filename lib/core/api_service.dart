@@ -4,11 +4,12 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vehicle_record.dart';
 import '../models/user.dart'; // Add this line to import the User model
+import '../models/mvfile.dart'; // Add this line to import the MVFile model
 import 'package:jwt_decoder/jwt_decoder.dart'; // Add this line to import the jwt_decoder package
 
 class ApiService {
-  static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
-    // static const String baseUrl = "http://localhost:3000"; // Change to your API URL
+  // static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
+  static const String baseUrl = "http://localhost:3000"; // Change to your API URL
 ApiService() {
   Connectivity().onConnectivityChanged.listen((result) {
     if (result != ConnectivityResult.none) {
@@ -153,6 +154,45 @@ Future<List<VehicleRecord>> fetchVehicles() async {
   }
 }
 
+Future<MVFile?> fetchMVFileById(String id) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/mv-files/$id'),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  if (response.statusCode == 200) {
+    return MVFile.fromJson(json.decode(response.body));
+  } else {
+    return null; // Handle invalid ID case
+  }
+}
+
+
+Future<List<MVFile>> fetchMVFiles() async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/mv-files'),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  if (response.statusCode == 200) {
+    List jsonResponse = json.decode(response.body);
+    return jsonResponse.map((data) => MVFile.fromJson(data)).toList();
+  } else {
+    throw Exception("Failed to load MV files");
+  }
+}
 
 
   // Define the _syncPendingChanges method DO NOT REMOVE THISSSSS
@@ -320,6 +360,71 @@ Future<void> _storeCreateLocally(VehicleRecord vehicle) async {
 }
 
 
+Future<void> createMvFile(MVFile mvFile, {bool offline = true}) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  if (await _isOnline()) {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/mv-files'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(mvFile.toJson()),
+      );
+
+      if (response.statusCode != 201) {
+        throw Exception("Failed to create MvFile online");
+      } else {
+        print("MvFile created online: ${mvFile.id}");
+      }
+    } catch (e) {
+      print("Error creating MvFile online: $e");
+      if (offline) await _storeMvFileCreateLocally(mvFile);
+    }
+  } else {
+    await _storeMvFileCreateLocally(mvFile);
+  }
+}
+
+Future<void> _storeMvFileCreateLocally(MVFile mvFile) async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> pendingCreates = prefs.getStringList("pending_mvfile_creates") ?? [];
+
+  mvFile.id ??= DateTime.now().millisecondsSinceEpoch.toString(); // Assign temporary ID if needed
+
+  pendingCreates.add(jsonEncode(mvFile.toJson()));
+  await prefs.setStringList("pending_mvfile_creates", pendingCreates);
+
+  print("MvFile stored offline for later syncing: ${mvFile.id}");
+}
+
+Future<void> deleteMVfile(String id) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  if (token == null) {
+    throw Exception("Authentication token not found");
+  }
+
+  final response = await http.delete(
+    Uri.parse('$baseUrl/mv-files/$id'),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception("Failed to delete MV File Record");
+  } else {
+    print("MV File Record deleted successfully: $id");
+  }
+}
+
+
   // 🔄 Update vehicle record (PATCH)
   // Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
   //   if (await _isOnline()) {
@@ -369,6 +474,39 @@ Future<void> updateVehicle(String id, VehicleRecord vehicle) async {
   }
 }
 
+Future<void> updateMVFile(String id, MVFile mv_file) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString("jwt_token");
+
+  if (token == null) {
+    throw Exception("Authentication token not found");
+  }
+
+  if (await _isOnline()) {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/mv-files/$id'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(mv_file.toJson()),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception("Failed to update vehicle");
+      } else {
+        print("Vehicle updated successfully: $id");
+      }
+    } catch (e) {
+      print("Error updating vehicle online: $e");
+      await _storeMVFileUpdateLocally(id, mv_file); // Save locally if the request fails
+    }
+  } else {
+    await _storeMVFileUpdateLocally(id, mv_file);
+  }
+}
+
 
 Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
   final prefs = await SharedPreferences.getInstance();
@@ -385,6 +523,23 @@ Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
   await prefs.setStringList("pending_updates", pendingUpdates);
 
   print("Vehicle update stored offline for syncing later: $id");
+}
+
+Future<void> _storeMVFileUpdateLocally(String id, MVFile mvFile) async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> pendingUpdates = prefs.getStringList("pending_mvfile_updates") ?? [];
+
+  // Remove previous updates for the same MVFile
+  pendingUpdates.removeWhere((item) {
+    Map<String, dynamic> existing = jsonDecode(item);
+    return existing["id"] == id;
+  });
+
+  // Save new update
+  pendingUpdates.add(jsonEncode({"id": id, "mvFile": mvFile.toJson()}));
+  await prefs.setStringList("pending_mvfile_updates", pendingUpdates);
+
+  print("MVFile update stored offline for syncing later: $id");
 }
 
 
@@ -412,6 +567,8 @@ Future<void> deleteVehicle(String id) async {
     print("Vehicle deleted successfully: $id");
   }
 }
+
+
 
 
   // Sync offline data

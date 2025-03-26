@@ -7,19 +7,19 @@ class MVFile {
   String id;
   String section;
   String mvFileNumber;
-  String plateNumber;
-  SyncStatus syncStatus;
-  DateTime dateCreated;
-  DateTime dateUpdated;
+  String? plateNumber;
+  SyncStatus? syncStatus;
+  DateTime? dateCreated;
+  DateTime? dateUpdated;
 
   MVFile({
     required this.id,
     required this.section,
     required this.mvFileNumber,
-    required this.plateNumber,
+    this.plateNumber,
     this.syncStatus = SyncStatus.PENDING,
-    required this.dateCreated,
-    required this.dateUpdated,
+    this.dateCreated,  // Now optional
+    this.dateUpdated,  // Now optional
   });
 
   // Convert JSON to MVFile object
@@ -28,19 +28,15 @@ class MVFile {
       id: json['id']?.toString() ?? "UNKNOWN",
       section: json['SECTION']?.toString() ?? "N/A",
       mvFileNumber: json['MVFILENUMBER']?.toString() ?? "N/A",
-      plateNumber: json['PLATENUMBER']?.toString() ?? "N/A",
+      plateNumber: json['PLATENUMBER']?.toString(),
       syncStatus: json['syncStatus'] != null
           ? SyncStatus.values.firstWhere(
               (e) => e.toString().split('.').last == json['syncStatus'],
               orElse: () => SyncStatus.PENDING,
             )
           : SyncStatus.PENDING,
-      dateCreated: json['dateCreated'] != null
-          ? DateTime.tryParse(json['dateCreated'])?.toLocal() ?? DateTime.now()
-          : DateTime.now(),
-      dateUpdated: json['dateUpdated'] != null
-          ? DateTime.tryParse(json['dateUpdated'])?.toLocal() ?? DateTime.now()
-          : DateTime.now(),
+      dateCreated: json['dateCreated'] != null ? DateTime.tryParse(json['dateCreated'])?.toLocal() : null,
+      dateUpdated: json['dateUpdated'] != null ? DateTime.tryParse(json['dateUpdated'])?.toLocal() : null,
     );
   }
 
@@ -53,42 +49,43 @@ class MVFile {
       plateNumber: map['plateNumber'],
       syncStatus: map['syncStatus'] != null
           ? SyncStatus.values.firstWhere(
-              (e) => e.toString().split('.').last == map['syncStatus'])
+              (e) => e.toString().split('.').last == map['syncStatus'],
+              orElse: () => SyncStatus.PENDING,
+            )
           : SyncStatus.PENDING,
-      dateCreated: DateTime.parse(map['dateCreated']),
-      dateUpdated: DateTime.parse(map['dateUpdated']),
+      dateCreated: map['dateCreated'] != null ? DateTime.tryParse(map['dateCreated']) : null,
+      dateUpdated: map['dateUpdated'] != null ? DateTime.tryParse(map['dateUpdated']) : null,
     );
   }
 
-  // Convert MVFile object to Map
+  // Convert MVFile object to Map (exclude null fields)
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+    final map = {
       'section': section,
       'mvFileNumber': mvFileNumber,
       'plateNumber': plateNumber,
       'syncStatus': syncStatus.toString().split('.').last,
-      'dateCreated': dateCreated.toIso8601String(),
-      'dateUpdated': dateUpdated.toIso8601String(),
     };
+
+    if (dateCreated != null) map['dateCreated'] = dateCreated!.toIso8601String();
+    if (dateUpdated != null) map['dateUpdated'] = dateUpdated!.toIso8601String();
+
+    return map;
   }
 
-  // Convert MVFile object to JSON
+  // Convert MVFile object to JSON (exclude null fields)
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'id': id,
       'SECTION': section,
       'MVFILENUMBER': mvFileNumber,
       'PLATENUMBER': plateNumber,
       'syncStatus': syncStatus.toString().split('.').last,
-      'dateCreated': dateCreated.toUtc().toIso8601String(),
-      'dateUpdated': dateUpdated.toUtc().toIso8601String(),
     };
-  }
 
-  // Get formatted date
-  // String get formattedDateUpdated {
-  //   final formatter = DateFormat("MMMM d, yyyy hh:mm a"); 
-  //   return formatter.format(dateUpdated);
-  // }
+    if (dateCreated != null) json['dateCreated'] = dateCreated!.toUtc().toIso8601String();
+    if (dateUpdated != null) json['dateUpdated'] = dateUpdated!.toUtc().toIso8601String();
+
+    return json;
+  }
 }

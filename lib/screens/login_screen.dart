@@ -31,6 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/basic-dashboard');
       } else if (accountType == "limited") {
         Navigator.pushReplacementNamed(context, '/limited-dashboard');
+      }  else if (accountType == "mvfileadmin") {
+        Navigator.pushReplacementNamed(context, '/mvf-dashboard'); 
+      } else if (accountType == "mvfilebasic") {
+        Navigator.pushReplacementNamed(context, '/limited-dashboard'); 
       } else {
         print("Unknown account type: $accountType");
         ScaffoldMessenger.of(context).showSnackBar(
