@@ -21,12 +21,18 @@ class _EditMVFileScreenState extends State<EditMVFileScreen> {
   late TextEditingController _mvFileNumberController;
   late TextEditingController _plateNumberController;
 
-  @override
-  void initState() {
-    super.initState();
+@override
+void initState() {
+  super.initState();
+  _listenForConnectivityChanges();
+
     _sectionController = TextEditingController(text: widget.mvFile.section);
-    _mvFileNumberController = TextEditingController(text: widget.mvFile.mvFileNumber);
-    _plateNumberController = TextEditingController(text: widget.mvFile.plateNumber);
+    _mvFileNumberController = TextEditingController(
+      text: widget.mvFile.mvFileNumber,
+    );
+    _plateNumberController = TextEditingController(
+      text: widget.mvFile.plateNumber,
+    );
     _syncPendingEdits();
 
     Connectivity().onConnectivityChanged.listen((connectivityResult) async {
@@ -36,6 +42,20 @@ class _EditMVFileScreenState extends State<EditMVFileScreen> {
       }
     });
   }
+
+  void _listenForConnectivityChanges() {
+  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    if (results.any((result) => result != ConnectivityResult.none)) {
+      _syncPendingEdits();
+    }
+  });
+}
+
+  Future<bool> _isOnline() async {
+  var connectivityResult = await Connectivity().checkConnectivity();
+  return connectivityResult != ConnectivityResult.none;
+}
+
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
@@ -63,45 +83,58 @@ class _EditMVFileScreenState extends State<EditMVFileScreen> {
 
   Future<void> _savePendingEdit(MVFile mvFile) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingEdits = prefs.getStringList('pending_mvfile_edits') ?? [];
-    pendingEdits.add(jsonEncode(mvFile.toJson()));
-    await prefs.setStringList('pending_mvfile_edits', pendingEdits);
+    List<String> pendingEdits =
+        prefs.getStringList('pending_mvfile_updates') ?? [];
+
+    // Remove any existing edit for this ID before adding a new one
+    pendingEdits.removeWhere((item) {
+      Map<String, dynamic> existing = jsonDecode(item);
+      return existing["id"] == mvFile.id;
+    });
+
+    // Save the new edit with the ID included
+    pendingEdits.add(jsonEncode({"id": mvFile.id, "mvFile": mvFile.toJson()}));
+    await prefs.setStringList('pending_mvfile_updates', pendingEdits);
+
     print("📌 Saved pending edit for MVFile ${mvFile.id}");
   }
 
-  Future<void> _syncPendingEdits() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingEdits = prefs.getStringList('pending_mvfile_edits');
+Future<void> _syncPendingEdits() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingEdits = prefs.getStringList('pending_mvfile_updates');
 
-    if (pendingEdits == null || pendingEdits.isEmpty) {
-      print("✅ No pending edits to sync.");
-      return;
-    }
-
-    print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
-
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
-      print("⚠️ Still offline, cannot sync pending edits.");
-      return;
-    }
-
-    List<String> unsyncedEdits = [];
-
-    for (String json in pendingEdits) {
-      MVFile mvFile = MVFile.fromJson(jsonDecode(json));
-      try {
-        await ApiService().updateMVFile(mvFile.id, mvFile);
-        print("✅ Synced MVFile ${mvFile.id}");
-      } catch (e) {
-        print("❌ Failed to sync MVFile ${mvFile.id}: $e");
-        unsyncedEdits.add(json);
-      }
-    }
-
-    await prefs.setStringList('pending_mvfile_edits', unsyncedEdits);
-    print(unsyncedEdits.isEmpty ? "✅ All edits synced!" : "🔄 Some edits still pending.");
+  if (pendingEdits == null || pendingEdits.isEmpty) {
+    print("✅ No pending MVFile edits to sync.");
+    return;
   }
+
+  print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+
+  if (!(await _isOnline())) {
+    print("⚠️ Still offline, cannot sync pending edits.");
+    return;
+  }
+
+  List<String> unsyncedEdits = [];
+
+  for (String json in pendingEdits) {
+    Map<String, dynamic> data = jsonDecode(json);
+    String id = data["id"];
+    MVFile mvFile = MVFile.fromJson(data["mvFile"]);
+
+    try {
+      await ApiService().updateMVFile(id, mvFile);
+      print("✅ Synced MVFile ${mvFile.id}");
+    } catch (e) {
+      print("❌ Failed to sync MVFile ${mvFile.id}: $e");
+      unsyncedEdits.add(json); // Keep unsynced edits
+    }
+  }
+
+  await prefs.setStringList('pending_mvfile_updates', unsyncedEdits);
+  print(unsyncedEdits.isEmpty ? "✅ All edits synced!" : "🔄 Some edits still pending.");
+}
+
 
   void _showSuccessDialog({bool isOffline = false}) {
     showDialog(
@@ -129,9 +162,9 @@ class _EditMVFileScreenState extends State<EditMVFileScreen> {
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $message")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Error: $message")));
   }
 
   @override

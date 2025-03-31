@@ -8,8 +8,8 @@ import '../models/mvfile.dart'; // Add this line to import the MVFile model
 import 'package:jwt_decoder/jwt_decoder.dart'; // Add this line to import the jwt_decoder package
 
 class ApiService {
-  // static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
-  static const String baseUrl = "http://localhost:3000"; // Change to your API URL
+  static const String baseUrl = "https://lto-deploy.onrender.com"; // Change to your API URL
+  // static const String baseUrl = "http://localhost:3000"; // Change to your API URL
 ApiService() {
   Connectivity().onConnectivityChanged.listen((result) {
     if (result != ConnectivityResult.none) {
@@ -391,12 +391,12 @@ Future<void> createMvFile(MVFile mvFile, {bool offline = true}) async {
 
 Future<void> _storeMvFileCreateLocally(MVFile mvFile) async {
   final prefs = await SharedPreferences.getInstance();
-  List<String> pendingCreates = prefs.getStringList("pending_mvfile_creates") ?? [];
+  List<String> pendingCreates = prefs.getStringList("pending_mvfiles") ?? [];
 
   mvFile.id ??= DateTime.now().millisecondsSinceEpoch.toString(); // Assign temporary ID if needed
 
   pendingCreates.add(jsonEncode(mvFile.toJson()));
-  await prefs.setStringList("pending_mvfile_creates", pendingCreates);
+  await prefs.setStringList("pending_mvfiles", pendingCreates);
 
   print("MvFile stored offline for later syncing: ${mvFile.id}");
 }
@@ -494,18 +494,19 @@ Future<void> updateMVFile(String id, MVFile mv_file) async {
       );
 
       if (response.statusCode != 200) {
-        throw Exception("Failed to update vehicle");
+        throw Exception("Failed to update MVFile");
       } else {
-        print("Vehicle updated successfully: $id");
+        print("✅ MVFile updated successfully: $id");
       }
     } catch (e) {
-      print("Error updating vehicle online: $e");
-      await _storeMVFileUpdateLocally(id, mv_file); // Save locally if the request fails
+      print("❌ Error updating MVFile online: $e");
+      await _storeMVFileUpdateLocally(id, mv_file); // Save locally if request fails
     }
   } else {
     await _storeMVFileUpdateLocally(id, mv_file);
   }
 }
+
 
 
 Future<void> _storeUpdateLocally(String id, VehicleRecord vehicle) async {
@@ -539,8 +540,9 @@ Future<void> _storeMVFileUpdateLocally(String id, MVFile mvFile) async {
   pendingUpdates.add(jsonEncode({"id": id, "mvFile": mvFile.toJson()}));
   await prefs.setStringList("pending_mvfile_updates", pendingUpdates);
 
-  print("MVFile update stored offline for syncing later: $id");
+  print("📌 MVFile update stored offline for syncing later: $id");
 }
+
 
 
 

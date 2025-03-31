@@ -60,35 +60,41 @@ void _submitForm() async {
 
     // ✅ Show new record in the UI immediately
     setState(() {
-      _mvFiles.add(mvFile);
+      _mvFiles = [..._mvFiles, mvFile];
     });
+
 
     print("✅ MV File saved offline with temp ID: ${mvFile.id}");
   }
 
-  Future<void> _syncPendingRecords() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? pendingRecords = prefs.getStringList('pending_mvfiles');
+Future<void> _syncPendingRecords() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String>? pendingRecords = prefs.getStringList('pending_mvfiles');
 
-    if (pendingRecords != null && pendingRecords.isNotEmpty) {
-      var connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult != ConnectivityResult.none) {
-        List<MVFile> mvFiles = pendingRecords
-            .map((json) => MVFile.fromJson(jsonDecode(json)))
-            .toList();
+  if (pendingRecords != null && pendingRecords.isNotEmpty) {
+    List<MVFile> mvFiles = pendingRecords
+        .map((json) => MVFile.fromJson(jsonDecode(json)))
+        .toList();
 
-        for (var mvFile in mvFiles) {
-          try {
-            await ApiService().createMvFile(mvFile);
-          } catch (e) {
-            print("Error syncing record: $e");
-          }
-        }
+    List<String> successfullySynced = [];
 
-        await prefs.remove('pending_mvfiles'); // Clear after syncing
+    for (var mvFile in mvFiles) {
+      try {
+        await ApiService().createMvFile(mvFile);
+        successfullySynced.add(jsonEncode(mvFile.toJson())); // Keep track of synced files
+      } catch (e) {
+        print("Error syncing record: $e");
       }
     }
+
+    // Remove only successfully synced records
+    pendingRecords.removeWhere((record) => successfullySynced.contains(record));
+    await prefs.setStringList('pending_mvfiles', pendingRecords);
   }
+
+  
+}
+
 
   void _showSuccessDialog({bool isOffline = false}) {
     showDialog(
@@ -121,11 +127,23 @@ void _submitForm() async {
     ).showSnackBar(SnackBar(content: Text("Error: $message")));
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _syncPendingRecords(); // Try syncing pending records when screen loads
-  }
+  
+
+@override
+void initState() {
+  super.initState();
+  _listenForConnectivityChanges();
+}
+
+void _listenForConnectivityChanges() {
+  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    if (results.any((result) => result != ConnectivityResult.none)) {
+      _syncPendingRecords();
+    }
+  });
+}
+
+
 
   @override
   Widget build(BuildContext context) {
