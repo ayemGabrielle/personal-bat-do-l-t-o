@@ -566,47 +566,57 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
                 ],
               ),
 
-// Search Box (Moves to the Top When Not Empty)
-Positioned(
-  top: _searchQuery.isEmpty ? MediaQuery.of(context).size.height * 0.6 : 0,
-  left: 0,
-  right: 0,
-  child: Container(
-    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    margin: EdgeInsets.only(bottom: 10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black26,
-          blurRadius: 4,
-          offset: Offset(0, 2),
-        ),
-      ],
-      border: Border.all(color: Colors.blueAccent, width: 1),
-    ),
-    child: TextField(
-      controller: _searchController,
-      decoration: InputDecoration(
-        hintText: "Search MV File Number...",
-        hintStyle: TextStyle(color: Colors.grey.shade600),
-        border: InputBorder.none,
-        prefixIcon: Icon(Icons.search, color: Colors.blueAccent),
-        suffixIcon: _searchQuery.isNotEmpty
-            ? IconButton(
-                icon: Icon(Icons.clear, color: Colors.blueAccent),
-                onPressed: () {
-                  _searchController.clear();  // Clears the text field
-                  _updateSearchQuery('');     // Updates the search query state
-                },
-              )
-            : null, // Only show the clear button when there is text in the search box
-      ),
-      onChanged: _updateSearchQuery,
-    ),
-  ),
-),
+              // Search Box (Moves to the Top When Not Empty)
+              Positioned(
+                top:
+                    _searchQuery.isEmpty
+                        ? MediaQuery.of(context).size.height * 0.6
+                        : 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.blueAccent, width: 1),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Search MV File Number...",
+                      hintStyle: TextStyle(color: Colors.grey.shade600),
+                      border: InputBorder.none,
+                      prefixIcon: Icon(Icons.search, color: Colors.blueAccent),
+                      suffixIcon:
+                          _searchQuery.isNotEmpty
+                              ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: Colors.blueAccent,
+                                ),
+                                onPressed: () {
+                                  _searchController
+                                      .clear(); // Clears the text field
+                                  _updateSearchQuery(
+                                    '',
+                                  ); // Updates the search query state
+                                },
+                              )
+                              : null, // Only show the clear button when there is text in the search box
+                    ),
+                    onChanged: _updateSearchQuery,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
