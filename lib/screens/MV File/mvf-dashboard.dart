@@ -33,7 +33,7 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
 
   void _updateSearchQuery(String query) {
     setState(() {
-      _searchQuery = query.toUpperCase();
+      _searchQuery = query.replaceAll('-', '').toUpperCase();
       _currentPage = 0;
     });
   }
@@ -391,36 +391,17 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title:
-              _isSearching
-                  ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    style: TextStyle(color: Colors.white, fontSize: 18),
-                    decoration: InputDecoration(
-                      hintText: "Search by MV File Number or Plate...",
-                      hintStyle: TextStyle(color: Colors.white70, fontSize: 16),
-                      border: InputBorder.none,
-                    ),
-                    onChanged: _updateSearchQuery,
-                  )
-                  : Text(
-                    'MV File Records',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24 * MediaQuery.of(context).textScaleFactor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          title: Text(
+            'MV File Records',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24 * MediaQuery.of(context).textScaleFactor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
           backgroundColor: Color(0xFF3b82f6),
           actions: [
-            IconButton(
-              icon: Icon(
-                _isSearching ? Icons.close : Icons.search,
-                color: Colors.white,
-              ),
-              onPressed: _toggleSearch,
-            ),
             IconButton(
               icon: Icon(Icons.logout, color: Colors.red),
               onPressed: _confirmLogout,
@@ -429,175 +410,203 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
         ),
         body: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Column(
+          child: Stack(
             children: [
-              Expanded(
-                child: FutureBuilder<List<MVFile>>(
-                  future: _mvFiles,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Center(child: Text("Error: ${snapshot.error}"));
-                    } else {
-                      List<MVFile> mvFiles = snapshot.data ?? [];
+              Column(
+                children: [
+                  // Expanded content goes here
+                  Expanded(
+                    child: FutureBuilder<List<MVFile>>(
+                      future: _mvFiles,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return Center(
+                            child: Text("Error: ${snapshot.error}"),
+                          );
+                        } else {
+                          List<MVFile> mvFiles = snapshot.data ?? [];
 
-                      if (_searchQuery.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Image.asset(
-                                "images/app_icon.png",
-                                width: 200,
-                                height: 200,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                "MV FILE RECORDS DASHBOARD",
-                                style: TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.indigo,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: 20),
-                              Container(
-                                padding: EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Color.fromARGB(255, 255, 236, 200),
-                                  border: Border.all(
-                                    color: Colors.red,
-                                    width: 2,
+                          if (_searchQuery.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    "images/app_icon.png",
+                                    width: 200,
+                                    height: 200,
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  "Use the search bar to find an MV File.\n📝 Note: Type \"All\" to show all records.",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                  SizedBox(height: 8),
+                                  Text(
+                                    "MV FILE RECORDS DASHBOARD",
+                                    style: TextStyle(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                  SizedBox(height: 20),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      }
+                            );
+                          }
 
-                      List<MVFile> filteredMVFiles =
-                          _searchQuery.toUpperCase() == "ALL"
-                              ? mvFiles
-                              : mvFiles.where((mvFile) {
+                          List<MVFile> filteredMVFiles =
+                              mvFiles.where((mvFile) {
                                 return mvFile.mvFileNumber
-                                        .toUpperCase()
-                                        .contains(_searchQuery) ||
-                                    (mvFile.plateNumber?.toUpperCase().contains(
-                                          _searchQuery,
-                                        ) ??
-                                        false);
+                                    .replaceAll('-', '')
+                                    .toUpperCase()
+                                    .contains(_searchQuery);
                               }).toList();
 
-                      if (filteredMVFiles.isEmpty) {
-                        return Center(child: Text("No results found."));
-                      }
+                          if (filteredMVFiles.isEmpty) {
+                            return Center(child: Text("No results found."));
+                          }
 
-                      int startIndex = _currentPage * _rowsPerPage;
-                      int endIndex = startIndex + _rowsPerPage;
-                      endIndex =
-                          endIndex > filteredMVFiles.length
-                              ? filteredMVFiles.length
-                              : endIndex;
-                      List<MVFile> paginatedMVFiles = filteredMVFiles.sublist(
-                        startIndex,
-                        endIndex,
-                      );
-
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: paginatedMVFiles.length,
-                              itemBuilder: (context, index) {
-                                MVFile mvFile = paginatedMVFiles[index];
-                                return GestureDetector(
-                                  onTap:
-                                      () => _showMVFileDetails(
-                                        mvFile,
-                                      ), // Opens the details dialog
-                                  child: Card(
-                                    elevation: 2,
-                                    margin: EdgeInsets.symmetric(
-                                      vertical: 8,
-                                      horizontal: 12,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "MV File: ${mvFile.mvFileNumber}",
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            "Plate Number: ${mvFile.plateNumber ?? 'N/A'}",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          int startIndex = _currentPage * _rowsPerPage;
+                          int endIndex = startIndex + _rowsPerPage;
+                          endIndex =
+                              endIndex > filteredMVFiles.length
+                                  ? filteredMVFiles.length
+                                  : endIndex;
+                          List<MVFile> paginatedMVFiles = filteredMVFiles
+                              .sublist(startIndex, endIndex);
+                          return Column(
                             children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.chevron_left,
-                                  color: Colors.blue,
+                              // Adding a SizedBox to create vertical space before the list
+                              SizedBox(
+                                height: 70,
+                              ), // Adjust the value to your needs
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: paginatedMVFiles.length,
+                                  itemBuilder: (context, index) {
+                                    MVFile mvFile = paginatedMVFiles[index];
+                                    return GestureDetector(
+                                      onTap:
+                                          () => _showMVFileDetails(
+                                            mvFile,
+                                          ), // Opens the details dialog
+                                      child: Card(
+                                        elevation: 2,
+                                        margin: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                          horizontal: 12,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "MV File: ${mvFile.mvFileNumber}",
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 4),
+                                              Text(
+                                                "Plate Number: ${mvFile.plateNumber ?? 'N/A'}",
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                onPressed:
-                                    _currentPage > 0 ? _goToPreviousPage : null,
                               ),
-                              Text(
-                                "Page ${_currentPage + 1}",
-                                style: TextStyle(color: Colors.blue),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.blue,
-                                ),
-                                onPressed:
-                                    (_currentPage + 1) * _rowsPerPage <
-                                            filteredMVFiles.length
-                                        ? _goToNextPage
-                                        : null,
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.chevron_left,
+                                      color: Colors.blue,
+                                    ),
+                                    onPressed:
+                                        _currentPage > 0
+                                            ? _goToPreviousPage
+                                            : null,
+                                  ),
+                                  Text(
+                                    "Page ${_currentPage + 1}",
+                                    style: TextStyle(color: Colors.blue),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.chevron_right,
+                                      color: Colors.blue,
+                                    ),
+                                    onPressed:
+                                        (_currentPage + 1) * _rowsPerPage <
+                                                filteredMVFiles.length
+                                            ? _goToNextPage
+                                            : null,
+                                  ),
+                                ],
                               ),
                             ],
-                          ),
-                        ],
-                      );
-                    }
-                  },
-                ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
+
+// Search Box (Moves to the Top When Not Empty)
+Positioned(
+  top: _searchQuery.isEmpty ? MediaQuery.of(context).size.height * 0.6 : 0,
+  left: 0,
+  right: 0,
+  child: Container(
+    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    margin: EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black26,
+          blurRadius: 4,
+          offset: Offset(0, 2),
+        ),
+      ],
+      border: Border.all(color: Colors.blueAccent, width: 1),
+    ),
+    child: TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: "Search MV File Number...",
+        hintStyle: TextStyle(color: Colors.grey.shade600),
+        border: InputBorder.none,
+        prefixIcon: Icon(Icons.search, color: Colors.blueAccent),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: Icon(Icons.clear, color: Colors.blueAccent),
+                onPressed: () {
+                  _searchController.clear();  // Clears the text field
+                  _updateSearchQuery('');     // Updates the search query state
+                },
+              )
+            : null, // Only show the clear button when there is text in the search box
+      ),
+      onChanged: _updateSearchQuery,
+    ),
+  ),
+),
             ],
           ),
         ),
