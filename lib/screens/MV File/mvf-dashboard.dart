@@ -381,6 +381,8 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Detect the keyboard's visibility
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     return Container(
       decoration: BoxDecoration(
         image: DecorationImage(
@@ -569,9 +571,11 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
               // Search Box (Moves to the Top When Not Empty)
               Positioned(
                 top:
-                    _searchQuery.isEmpty
-                        ? MediaQuery.of(context).size.height * 0.6
-                        : 0,
+                    keyboardHeight > 0
+                        ? 0
+                        : (_searchQuery.isEmpty
+                            ? MediaQuery.of(context).size.height * 0.6
+                            : 0),
                 left: 0,
                 right: 0,
                 child: Container(
