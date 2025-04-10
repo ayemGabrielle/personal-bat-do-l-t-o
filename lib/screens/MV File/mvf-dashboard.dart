@@ -267,8 +267,8 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
               border: TableBorder.all(color: Colors.grey, width: 1),
               columnWidths: {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
               children: [
-                _buildTableRow("ID", mvFile.id),
                 _buildTableRow("Section", mvFile.section),
+                _buildTableRow("Agency", mvFile.agency ?? 'N/A'),
                 _buildTableRow("MV File Number", mvFile.mvFileNumber),
                 _buildTableRow("Plate Number", mvFile.plateNumber ?? 'N/A'),
                 _buildTableRow("Created", mvFile.dateCreated.toString()),

@@ -38,50 +38,55 @@ class _EditVehicleScreenState extends State<EditVehicleScreen> {
     _areaController = TextEditingController(text: widget.vehicle.area ?? "");
     _selectedStatus = widget.vehicle.status;
 
-  _syncPendingEdits();
+    _syncPendingEdits();
 
-  // Improved listener: runs immediately on reconnection
-  Connectivity().onConnectivityChanged.listen((connectivityResult) async {
-    if (connectivityResult != ConnectivityResult.none) {
-      print("🌐 Internet restored! Attempting to sync...");
-      await _syncPendingEdits();
-    }
+    // Improved listener: runs immediately on reconnection
+    Connectivity().onConnectivityChanged.listen((connectivityResult) async {
+      if (connectivityResult != ConnectivityResult.none) {
+        print("🌐 Internet restored! Attempting to sync...");
+        await _syncPendingEdits();
+      }
     });
   }
 
-void _submitForm() async {
-  if (_formKey.currentState!.validate()) {
-    DateTime? newStatusUpdateDate = widget.vehicle.status == _selectedStatus
-        ? widget.vehicle.statusUpdateDate // Keep the existing date if no change
-        : (_selectedStatus == Status.Released ? DateTime.now() : null); // Set new date only if changed to Released
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      DateTime? newStatusUpdateDate =
+          widget.vehicle.status == _selectedStatus
+              ? widget
+                  .vehicle
+                  .statusUpdateDate // Keep the existing date if no change
+              : (_selectedStatus == Status.Released
+                  ? DateTime.now()
+                  : null); // Set new date only if changed to Released
 
-    VehicleRecord updatedVehicle = VehicleRecord(
-      id: widget.vehicle.id,
-      plateNumber: _plateNumberController.text.trim(),
-      section: _sectionController.text.trim(),
-      name: _nameController.text.trim(),
-      address: _addressController.text.trim(),
-      area: _areaController.text.trim(),
-      status: _selectedStatus!,
-      dateCreated: widget.vehicle.dateCreated,
-      dateUpdated: DateTime.now(),
-      statusUpdateDate: newStatusUpdateDate,
-    );
+      VehicleRecord updatedVehicle = VehicleRecord(
+        id: widget.vehicle.id,
+        plateNumber: _plateNumberController.text.trim(),
+        section: _sectionController.text.trim(),
+        name: _nameController.text.trim(),
+        address: _addressController.text.trim(),
+        area: _areaController.text.trim(),
+        status: _selectedStatus!,
+        dateCreated: widget.vehicle.dateCreated,
+        dateUpdated: DateTime.now(),
+        statusUpdateDate: newStatusUpdateDate,
+      );
 
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult != ConnectivityResult.none) {
-      try {
-        await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
-        _showSuccessDialog();
-      } catch (error) {
-        _showErrorSnackbar(error.toString());
+      var connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult != ConnectivityResult.none) {
+        try {
+          await ApiService().updateVehicle(widget.vehicle.id, updatedVehicle);
+          _showSuccessDialog();
+        } catch (error) {
+          _showErrorSnackbar(error.toString());
+        }
+      } else {
+        await _savePendingEdit(updatedVehicle);
+        _showSuccessDialog(isOffline: true);
       }
-    } else {
-      await _savePendingEdit(updatedVehicle);
-      _showSuccessDialog(isOffline: true);
     }
   }
-}
 
   // Future<void> _savePendingEdit(VehicleRecord vehicle) async {
   //   SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -93,19 +98,17 @@ void _submitForm() async {
   //   print("📌 Saved pending edit for vehicle ${vehicle.id}");
   // }
 
-Future<void> _savePendingEdit(VehicleRecord vehicle) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits') ?? [];
+  Future<void> _savePendingEdit(VehicleRecord vehicle) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingEdits =
+        prefs.getStringList('pending_vehicle_edits') ?? [];
 
-  String vehicleJson = jsonEncode(vehicle.toJson());
-  pendingEdits.add(vehicleJson);
+    String vehicleJson = jsonEncode(vehicle.toJson());
+    pendingEdits.add(vehicleJson);
 
-  await prefs.setStringList('pending_vehicle_edits', pendingEdits);
-  print("📌 Saved pending edit: $vehicleJson");  // Debugging line
-}
-
-
-
+    await prefs.setStringList('pending_vehicle_edits', pendingEdits);
+    print("📌 Saved pending edit: $vehicleJson"); // Debugging line
+  }
 
   // Future<void> _syncPendingEdits() async {
   //   SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -140,43 +143,44 @@ Future<void> _savePendingEdit(VehicleRecord vehicle) async {
   //   }
   // }
 
+  Future<void> _syncPendingEdits() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
 
-Future<void> _syncPendingEdits() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  List<String>? pendingEdits = prefs.getStringList('pending_vehicle_edits');
-
-  if (pendingEdits == null || pendingEdits.isEmpty) {
-    print("✅ No pending edits to sync.");
-    return;
-  }
-
-  print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
-
-  var connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
-    print("⚠️ Still offline, cannot sync pending edits.");
-    return;
-  }
-
-  List<String> unsyncedEdits = [];
-
-  for (String json in pendingEdits) {
-    VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(json));
-    try {
-      await ApiService().updateVehicle(vehicle.id, vehicle);
-      print("✅ Synced vehicle ${vehicle.id}");
-    } catch (e) {
-      print("❌ Failed to sync vehicle ${vehicle.id}: $e");
-      unsyncedEdits.add(json); // Keep failed syncs
+    if (pendingEdits == null || pendingEdits.isEmpty) {
+      print("✅ No pending edits to sync.");
+      return;
     }
+
+    print("🔄 Attempting to sync ${pendingEdits.length} pending edits...");
+
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      print("⚠️ Still offline, cannot sync pending edits.");
+      return;
+    }
+
+    List<String> unsyncedEdits = [];
+
+    for (String json in pendingEdits) {
+      VehicleRecord vehicle = VehicleRecord.fromJson(jsonDecode(json));
+      try {
+        await ApiService().updateVehicle(vehicle.id, vehicle);
+        print("✅ Synced vehicle ${vehicle.id}");
+      } catch (e) {
+        print("❌ Failed to sync vehicle ${vehicle.id}: $e");
+        unsyncedEdits.add(json); // Keep failed syncs
+      }
+    }
+
+    // Only remove successfully synced edits
+    await prefs.setStringList('pending_vehicle_edits', unsyncedEdits);
+    print(
+      unsyncedEdits.isEmpty
+          ? "✅ All edits synced!"
+          : "🔄 Some edits still pending.",
+    );
   }
-
-  // Only remove successfully synced edits
-  await prefs.setStringList('pending_vehicle_edits', unsyncedEdits);
-  print(unsyncedEdits.isEmpty ? "✅ All edits synced!" : "🔄 Some edits still pending.");
-}
-
-
 
   void _showSuccessDialog({bool isOffline = false}) {
     showDialog(
@@ -268,12 +272,10 @@ Future<void> _syncPendingEdits() async {
                             if (value == null || value.isEmpty) {
                               return "Enter Plate Number";
                             }
-                            if (value.length != 6) {
-                              return "Plate Number must be exactly 6 characters";
-                            }
                             return null;
                           },
                         ),
+
                         _buildTextField(
                           _sectionController,
                           "Section",
@@ -309,7 +311,7 @@ Future<void> _syncPendingEdits() async {
                             });
                           },
                         ),
-                        
+
                         SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,

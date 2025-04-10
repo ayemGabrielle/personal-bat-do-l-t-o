@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            "images/LTO_bg_image.jpg",
+            "images/LTO-BG-BGDO.png",
             fit: BoxFit.cover,
           ),
           Center(

@@ -11,6 +11,7 @@ class MVFile {
   SyncStatus? syncStatus;
   DateTime? dateCreated;
   DateTime? dateUpdated;
+  String? agency;
 
   MVFile({
     required this.id,
@@ -20,6 +21,7 @@ class MVFile {
     this.syncStatus = SyncStatus.PENDING,
     this.dateCreated,  // Now optional
     this.dateUpdated,  // Now optional
+    this.agency
   });
 
   // Convert JSON to MVFile object
@@ -37,6 +39,7 @@ class MVFile {
           : SyncStatus.PENDING,
       dateCreated: json['dateCreated'] != null ? DateTime.tryParse(json['dateCreated'])?.toLocal() : null,
       dateUpdated: json['dateUpdated'] != null ? DateTime.tryParse(json['dateUpdated'])?.toLocal() : null,
+      agency: json['AGENCY'],
     );
   }
 
@@ -55,6 +58,7 @@ class MVFile {
           : SyncStatus.PENDING,
       dateCreated: map['dateCreated'] != null ? DateTime.tryParse(map['dateCreated']) : null,
       dateUpdated: map['dateUpdated'] != null ? DateTime.tryParse(map['dateUpdated']) : null,
+      
     );
   }
 
@@ -65,6 +69,7 @@ class MVFile {
       'mvFileNumber': mvFileNumber,
       'plateNumber': plateNumber,
       'syncStatus': syncStatus.toString().split('.').last,
+      'AGENCY': agency,
     };
 
     if (dateCreated != null) map['dateCreated'] = dateCreated!.toIso8601String();

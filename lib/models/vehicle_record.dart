@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
-enum Status { Released, Available }
+enum Status { Released, Available, Inactive }
 enum SyncStatus { PENDING, SYNCED }
 
 class VehicleRecord {

@@ -651,16 +651,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                             247,
                                                             209,
                                                           )
+                                                          : vehicle.status ==
+                                                              Status.Inactive
+                                                          ? const Color.fromARGB(
+                                                            255,
+                                                            224,
+                                                            224,
+                                                            224,
+                                                          ) // Light gray for Inactive
                                                           : const Color.fromARGB(
                                                             255,
                                                             254,
                                                             216,
                                                             171,
-                                                          ),
+                                                          ), // Pending / Default
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                         50,
-                                                      ), // Creates an oval shape
+                                                      ), // Oval badge
                                                 ),
                                                 child: Text(
                                                   vehicle.status
@@ -673,13 +681,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     color:
                                                         vehicle.status ==
                                                                 Status.Released
-                                                            ? Color.fromARGB(
+                                                            ? const Color.fromARGB(
                                                               255,
                                                               38,
                                                               115,
                                                               67,
                                                             )
-                                                            : Color.fromARGB(
+                                                            : vehicle.status ==
+                                                                Status.Inactive
+                                                            ? const Color.fromARGB(
+                                                              255,
+                                                              97,
+                                                              97,
+                                                              97,
+                                                            ) // Dark gray for text
+                                                            : const Color.fromARGB(
                                                               255,
                                                               148,
                                                               32,
@@ -688,6 +704,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   ),
                                                 ),
                                               ),
+
                                               onTap:
                                                   () => _showVehicleDetails(
                                                     vehicle,
