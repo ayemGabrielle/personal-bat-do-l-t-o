@@ -6,6 +6,7 @@ import 'screens/Vehicle Records/dashboard_screen.dart';
 import 'screens/Vehicle Records/basic_screen.dart';
 import 'screens/Vehicle Records/limited_screen.dart';
 import '../screens/login_screen.dart';
+import 'screens/MV File/mvf-basic-screen.dart';
 
 class AuthGuard extends StatelessWidget {
   final Widget child;
@@ -39,6 +40,8 @@ class AuthGuard extends StatelessWidget {
         return BasicScreen();
       case "mvfileadmin":
         return MVFileDashboardScreen();
+      case "mvfilebasic":
+        return MVFileBasicDashboardScreen();
       default:
         return LoginScreen();
     }

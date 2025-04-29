@@ -8,15 +8,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
-import '../../models/mvfile.dart';
-import '../../core/api_service.dart';
 
-class MVFileDashboardScreen extends StatefulWidget {
+
+class MVFileBasicDashboardScreen extends StatefulWidget {
   @override
-  _MVFileDashboardScreenState createState() => _MVFileDashboardScreenState();
+  _MVFileBasicDashboardScreenState createState() => _MVFileBasicDashboardScreenState();
 }
 
-class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
+class _MVFileBasicDashboardScreenState extends State<MVFileBasicDashboardScreen> {
   late Future<List<MVFile>> _mvFiles;
   int _currentPage = 0;
   int _rowsPerPage = 15;
@@ -276,44 +275,9 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Close"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                editRecord(mvFile);
-              },
-              child: Text("Edit"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                deleteMVfile(mvFile);
-              },
-              child: Text("Delete", style: TextStyle(color: Colors.red)),
-            ),
-          ],
         );
       },
     );
-  }
-
-  void editRecord(MVFile mv_file) async {
-    bool? result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditMVFileScreen(mvFile: mv_file),
-      ),
-    );
-
-    if (result == true) {
-      setState(() {
-        _mvFiles = ApiService().fetchMVFiles(); // Refresh vehicle list
-      });
-    }
   }
 
   TableRow _buildTableRow(String label, String value) {
@@ -623,11 +587,6 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
               ),
             ],
           ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _createInAPI,
-          backgroundColor: Colors.blue,
-          child: Icon(Icons.add, color: Colors.white),
         ),
       ),
     );

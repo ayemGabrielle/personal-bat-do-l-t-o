@@ -21,9 +21,9 @@ void _submitForm() async {
   if (_formKey.currentState!.validate()) {
     MVFile newMVFile = MVFile(
       id: "",
-      mvFileNumber: _mvFileNumberController.text.trim(),
-      plateNumber: _plateNumberController.text.trim(),
-      section: _sectionController.text.trim(),
+      mvFileNumber: _mvFileNumberController.text.trim().toUpperCase(),
+      plateNumber: _plateNumberController.text.trim().toUpperCase(),
+      section: _sectionController.text.trim().toUpperCase(),
       dateCreated: DateTime.now(),
       dateUpdated: DateTime.now(),
     ); // ❌ Remove id field entirely

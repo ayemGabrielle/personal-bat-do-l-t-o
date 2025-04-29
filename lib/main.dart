@@ -6,6 +6,7 @@ import 'screens/Vehicle Records/limited_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/Vehicle Records/dashboard_screen.dart';
 import 'providers/auth_provider.dart';
+import 'screens/MV File/mvf-basic-screen.dart';
 
 void main() {
   runApp(
@@ -41,6 +42,8 @@ class MyApp extends StatelessWidget {
                 return _guardedRoute(context, authProvider, 'limited', LimitedScreen());
               case '/mvf-dashboard':
                 return _guardedRoute(context, authProvider, 'mvfileadmin', MVFileDashboardScreen());
+              case '/mvf-basic-dashboard':
+                return _guardedRoute(context, authProvider, 'mvfilebasic', MVFileBasicDashboardScreen());
               default:
                 return MaterialPageRoute(builder: (context) => LoginScreen());
             }

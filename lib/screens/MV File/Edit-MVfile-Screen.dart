@@ -61,9 +61,9 @@ void initState() {
     if (_formKey.currentState!.validate()) {
       MVFile updatedMVFile = MVFile(
         id: widget.mvFile.id,
-        section: _sectionController.text.trim(),
-        mvFileNumber: _mvFileNumberController.text.trim(),
-        plateNumber: _plateNumberController.text.trim(),
+        section: _sectionController.text.trim().toUpperCase(),
+        mvFileNumber: _mvFileNumberController.text.trim().toUpperCase(),
+        plateNumber: _plateNumberController.text.trim().toUpperCase(),
       );
 
       var connectivityResult = await Connectivity().checkConnectivity();
