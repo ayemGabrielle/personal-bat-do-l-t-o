@@ -33,7 +33,8 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
 
   void _updateSearchQuery(String query) {
     setState(() {
-      _searchQuery = query.replaceAll('-', '').toUpperCase();
+      _searchQuery = query.toUpperCase(); // Keeps dashes intact
+
       _currentPage = 0;
     });
   }
@@ -456,11 +457,18 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
                               ),
                             );
                           }
+                          // THIS IS FOR IGNORE DASHES IN THE SEARCH
+                          // List<MVFile> filteredMVFiles =
+                          //     mvFiles.where((mvFile) {
+                          //       return mvFile.mvFileNumber
+                          //           .replaceAll('-', '')
+                          //           .toUpperCase()
+                          //           .contains(_searchQuery);
+                          //     }).toList();
 
                           List<MVFile> filteredMVFiles =
                               mvFiles.where((mvFile) {
                                 return mvFile.mvFileNumber
-                                    .replaceAll('-', '')
                                     .toUpperCase()
                                     .contains(_searchQuery);
                               }).toList();
@@ -617,7 +625,11 @@ class _MVFileDashboardScreenState extends State<MVFileDashboardScreen> {
                               )
                               : null, // Only show the clear button when there is text in the search box
                     ),
-                    onChanged: _updateSearchQuery,
+                    // THIS IS FOR LIVE SEARCHING
+                    // onChanged: _updateSearchQuery,
+
+                    onSubmitted: (value) => _updateSearchQuery(value),
+
                   ),
                 ),
               ),
